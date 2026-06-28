@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<meta name="color-scheme" content="light" />
+<title>DMIT Restock Watch — panel</title>
+<link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='13'&gt;👁️&lt;/text&gt;&lt;/svg&gt;" />
+<link rel="stylesheet" href="/css/tokens.css" />
+</head>
+<body>
+  <div class="shell" id="app">
+
+    <header class="app">
+      <div class="brandblock">
+        <div class="t">DMIT&nbsp;·&nbsp;Restock&nbsp;Watch</div>
+        <div class="s">Premium Network · localhost · private</div>
+      </div>
+      <div class="health">
+        <span class="lamp conn connecting" id="connLamp" role="status" aria-live="polite"><span class="dot"></span><span id="connLabel">connecting…</span></span>
+        <span class="lamp run" id="watcherLamp"><span class="dot"></span><span id="watcherLabel">WATCHER RUNNING</span></span>
+        <span class="lamp"><span class="dot gray"></span>up <span id="uptime">—</span></span>
+        <span class="lamp"><span class="dot blue"></span>refresh <span id="lastRefresh">—</span></span>
+        <button class="lamp mutebtn focusable" id="muteBtn" aria-pressed="false"><span class="dot gray"></span><span id="muteLabel">🔔 sound on</span></button>
+      </div>
+    </header>
+
+    <div class="stats" aria-label="Stock summary">
+      <span class="stat-hero in0" id="stInWrap"><b id="stIn">0</b> in stock</span>
+      <span class="stat-sub"><b id="stWait">0</b> waiting</span>
+      <span class="stat-sub dim"><b id="stTotal">0</b> watched</span>
+      <span class="dim" id="breakdown"></span>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Panel sections">
+      <button role="tab" aria-selected="true" data-view="panel" class="focusable">Panel</button>
+      <button role="tab" aria-selected="false" data-view="history" class="focusable">History</button>
+      <button role="tab" aria-selected="false" data-view="health" class="focusable">Watcher health</button>
+      <button role="tab" aria-selected="false" data-view="watchlist" class="focusable">Watchlist</button>
+    </nav>
+
+    <div id="staleBanner" role="status" aria-live="polite">
+      <div class="stale-inner"><span class="ico" aria-hidden="true">⚠</span><span>Reconnecting — showing last-known data</span></div>
+    </div>
+
+    <div id="blindBanner" role="status" aria-live="polite">
+      <div class="blind-inner"><span class="ico" aria-hidden="true">⚠️</span><span id="blindText">Watcher may be blind — stock detection paused for a group until it recovers.</span></div>
+    </div>
+
+    <div id="banner" role="alert" aria-live="assertive">
+      <div class="banner-inner">
+        <div class="bl"><span class="ico" aria-hidden="true">▲</span>
+          <div><div class="bt" id="bannerTitle">IN STOCK</div><div class="bs" id="bannerSub"></div></div></div>
+        <div class="ba">
+          <a class="banner-buy" id="bannerBuy" href="#" target="_blank" rel="noopener">Buy now ▸</a>
+          <button class="silence" id="silenceBtn">Silence</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL -->
+    <section class="view active" id="view-panel" role="tabpanel" aria-label="Live panel">
+      <div class="alarm-zone" id="alarmZone" style="display:none" aria-label="Restock alarm"></div>
+
+      <div class="prem-note"><span class="ico" aria-hidden="true">ⓘ</span><span><b>Routing Profile: Premium</b> — includes Tier 1 + all Premium Transit providers (DMIT backbone, China Telecom CN2 GIA). Eyeball &amp; Tier 1 are not watched.</span></div>
+      <div class="dmit-label"><span class="ico" aria-hidden="true">◵</span>Datacenter → Generation → Instance Scale</div>
+
+      <section class="section waiting" aria-label="Waiting for restock">
+        <div class="sec-head"><span class="sec-title" style="color:var(--no-ink)">⏳ Waiting for restock</span>
+          <span class="sec-badge" style="color:var(--no-ink)"><span id="cntWaiting">0</span> sold out · <span id="cntInline">0</span> in stock</span></div>
+        <div id="waitingGroups"></div>
+        <div class="empty" id="waitingEmpty" style="display:none">All watched plans are in stock right now.</div>
+      </section>
+
+      <section class="section instock" aria-label="In stock now">
+        <div class="sec-head"><span class="sec-title" style="color:var(--ok-ink)">✅ In stock now</span><span class="sec-badge"><span id="cntInstock">0</span> in stock</span></div>
+        <div class="grid" id="instockGrid"></div>
+        <div class="empty" id="instockEmpty">Nothing in stock right now — you'll be alerted the instant one frees up.</div>
+      </section>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="view" id="view-history" role="tabpanel" aria-label="Transition history">
+      <div class="sectitle">Activity log — OUT⇄IN transitions</div>
+      <div id="historyList"></div>
+      <div class="empty" id="historyEmpty">No transitions recorded yet.</div>
+    </section>
+
+    <!-- HEALTH -->
+    <section class="view" id="view-health" role="tabpanel" aria-label="Watcher health">
+      <div class="sectitle">Watcher diagnostics — local Chrome data layer</div>
+      <div class="row"><div class="lead-l"><span class="skuname">Chrome session</span><span class="meta">real Chrome · CDP-attach · persistent profile</span></div><span id="chromeChip" class="chip in"><span class="dot"></span>—</span></div>
+      <div class="row"><div class="lead-l"><span class="skuname">Scheduler</span><span class="meta">polls families on cart.php · ~min jitter</span></div><span class="meta">last tick <span id="schedTick">—</span></span></div>
+      <div class="sectitle">Per-family polling</div>
+      <div id="healthList"></div>
+      <div class="sectitle">Telegram delivery</div>
+      <div id="telegramList"></div>
+      <div class="empty" id="telegramEmpty">No alerts sent yet.</div>
+    </section>
+
+    <!-- WATCHLIST -->
+    <section class="view" id="view-watchlist" role="tabpanel" aria-label="Watchlist">
+      <div class="sectitle">Watched families — editable config (Premium Network only)</div>
+      <div id="watchlist"></div>
+      <div class="addrow"><span>+ add / edit watched plans — edit config/watchlist.json directly</span><span aria-hidden="true">▸</span></div>
+    </section>
+
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

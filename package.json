@@ -1,0 +1,22 @@
+{
+  "name": "dmit-watch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Always-on watcher for DMIT's perpetually-sold-out Premium-network plans; alerts on the OUT->IN edge.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "init-db": "node scripts/init-db.js",
+    "smoke": "node scripts/smoke-detect.js",
+    "smoke:alert": "node scripts/smoke-alert.js",
+    "smoke:server": "node scripts/smoke-server.js",
+    "test": "node --test"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "playwright-core": "^1.61.1"
+  }
+}
