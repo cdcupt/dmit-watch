@@ -38,7 +38,7 @@ export function pcardHTML(p) {
   return `<article class="${cls}" data-id="${esc(p.id)}" tabindex="0">
     <div class="pstatus">${statusLabel}</div>
     <div class="phead"><span class="pname">${esc(p.name)}</span><span class="pright">${pop}</span></div>
-    <div class="price"><span class="cur">$</span><span class="num">${esc(num)}</span><span class="unit">USD</span><span class="per">/mo</span></div>
+    <div class="price"><span class="cur">$</span><span class="num">${esc(num)}</span><span class="unit">USD</span><span class="per">/${esc(p.period ?? 'mo')}</span></div>
     <div class="setup">Free Setup</div>
     <div class="specs"><span aria-hidden="true">▤</span> vCPU · RAM — read at runtime</div>
     <div class="pfoot">${foot}</div>

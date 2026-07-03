@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Smoke / bootstrap: open (create) the SQLite store, seed the 28 Premium plans
+// Smoke / bootstrap: open (create) the SQLite store, seed the 32 watched plans
 // from config/watchlist.json, then read them back and print a summary.
 //
 //   npm run init-db
@@ -42,11 +42,11 @@ function main() {
 
   store.close();
 
-  if (plans.length !== 28) {
-    console.error(`\nFAIL: expected 28 plans, got ${plans.length}`);
+  if (plans.length !== 32) {
+    console.error(`\nFAIL: expected 32 plans, got ${plans.length}`);
     process.exit(1);
   }
-  console.log('\nOK: store created + 28 plans seeded + read back.');
+  console.log('\nOK: store created + 32 plans seeded + read back.');
 }
 
 main();

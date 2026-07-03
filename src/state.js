@@ -35,6 +35,7 @@ function planView(plan, row, family, settings, alarmed) {
     name: plan.name,
     size: plan.size,
     price: plan.price,
+    period: plan.period ?? 'mo',
     popular: !!plan.popular,
     status,
     lastCheckMs: row?.last_checked ?? null,

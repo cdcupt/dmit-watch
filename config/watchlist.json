@@ -1,18 +1,20 @@
 {
   "_meta": {
     "source": "docs/pipeline/recon-premium.md (v3, CONFIRMED 2026-06-27); hkg/an5 retired 2026-07-03 (DMIT withdrew the generation — its cart URL serves AS3 content)",
-    "note": "28 Premium plans watched. HKG.AS3 + 5/7 of TYO.AS3 were IN STOCK at the 2026-07-03 revision; stock is read live.",
+    "note": "28 Premium plans watched. HKG.AS3 + 5/7 of TYO.AS3 were IN STOCK at the 2026-07-03 revision; stock is read live. 2026-07-03: qq.pw Hawaii residential VDS (provider whmcs, plain-HTTP) added — 32 plans / 6 families total.",
     "counts": {
-      "total": 28,
+      "total": 32,
       "byLocation": {
         "LAX": 16,
         "HKG": 5,
-        "TYO": 7
+        "TYO": 7,
+        "HNL": 4
       },
       "byGeneration": {
         "AS3": 18,
         "AN4": 5,
-        "AN5": 5
+        "AN5": 5,
+        "VDS": 4
       }
     },
     "excludedNetworks": [
@@ -111,6 +113,22 @@
       "cpu": "EPYC 7003",
       "planCount": 7,
       "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+    },
+    {
+      "key": "hnl/vds",
+      "provider": "whmcs",
+      "loc": "hnl",
+      "gen": "vds",
+      "label": "HNL·VDS",
+      "locCode": "HNL",
+      "city": "Honolulu",
+      "country": "United States",
+      "flag": "🇺🇸",
+      "genLabel": "VDS",
+      "cpu": "AMD 7940HS · qq.pw residential",
+      "planCount": 4,
+      "url": "https://qq.pw/store/residential-vds-with-dedicated-ip",
+      "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip"
     }
   ],
   "plans": [
@@ -421,6 +439,51 @@
       "price": "$829.90",
       "popular": false,
       "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+    },
+    {
+      "id": "hnl-vds-intern",
+      "family": "hnl/vds",
+      "loc": "hnl",
+      "gen": "vds",
+      "size": "Intern",
+      "name": "Dedicate IP VDS Intern",
+      "price": "$35.00",
+      "popular": false,
+      "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vds-entry"
+    },
+    {
+      "id": "hnl-vds-reliable",
+      "family": "hnl/vds",
+      "loc": "hnl",
+      "gen": "vds",
+      "size": "Reliable",
+      "name": "Dedicate IP VDS Reliable",
+      "price": "$35.00",
+      "popular": false,
+      "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vps"
+    },
+    {
+      "id": "hnl-vds-hardcore",
+      "family": "hnl/vds",
+      "loc": "hnl",
+      "gen": "vds",
+      "size": "Hardcore",
+      "name": "Dedicate IP VDS Hardcore",
+      "price": "$45.00",
+      "popular": false,
+      "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vds-2h2g4t"
+    },
+    {
+      "id": "hnl-vds-elite",
+      "family": "hnl/vds",
+      "loc": "hnl",
+      "gen": "vds",
+      "size": "Elite",
+      "name": "Dedicate IP VDS Elite",
+      "price": "$165.00",
+      "popular": false,
+      "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vds-standar2",
+      "period": "quarter"
     }
   ]
 }

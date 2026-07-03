@@ -36,7 +36,7 @@ export function buildEdgeMessage({ plan, family, deepLink, now = Date.now() }) {
   const cpu = family?.cpu ? `${family.cpu} ` : '';
   const gen = family?.genLabel ?? family?.gen ?? '';
   const genPart = gen ? `${cpu}(${gen})` : cpu.trim();
-  const price = plan?.price ? `${plan.price}/mo` : 'price unavailable';
+  const price = plan?.price ? `${plan.price}/${plan?.period ?? 'mo'}` : 'price unavailable';
   const specLine = [where, genPart, price].filter(Boolean).join(' · ');
   return [
     `🟢 IN STOCK — ${name}`,

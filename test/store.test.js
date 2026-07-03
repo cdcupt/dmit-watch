@@ -15,10 +15,10 @@ function freshStore() {
   return store;
 }
 
-test('seeds exactly 28 plans across 5 families', () => {
+test('seeds exactly 32 plans across 6 families', () => {
   const store = freshStore();
-  assert.equal(store.allPlans().length, 28);
-  assert.equal(store.allFamilyHealth().length, 5);
+  assert.equal(store.allPlans().length, 32);
+  assert.equal(store.allFamilyHealth().length, 6);
   store.close();
 });
 
@@ -40,8 +40,8 @@ test('reseed is idempotent and preserves runtime state', () => {
 
   const again = store.seedFromWatchlist(wl);
   assert.equal(again.plansInserted, 0);
-  assert.equal(again.plansUpdated, 28);
-  assert.equal(store.allPlans().length, 28); // no duplicates
+  assert.equal(again.plansUpdated, 32);
+  assert.equal(store.allPlans().length, 32); // no duplicates
 
   const p = store.getPlan('lax-an4-medium');
   assert.equal(p.last_known, 'IN'); // runtime state survived the reseed
@@ -192,7 +192,7 @@ test('on-disk store opens WAL, persists, and prune+VACUUM compacts', () => {
     store.recordTransition({ planId: 'lax-an4-medium', from: 'IN', to: 'OUT', ts: old - 100 * 86_400_000 });
     const res = store.prune({ days: 90, now: old, vacuum: true }); // default-vacuum branch
     assert.equal(res.transitions, 1);
-    assert.equal(store.allPlans().length, 28);
+    assert.equal(store.allPlans().length, 32);
     store.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -276,8 +276,8 @@ test('seedFromWatchlist deletes retired plans/families and their history (no gho
   const res = store.seedFromWatchlist(wl); // the retirement re-seed
   assert.equal(res.plansRemoved, 1);
   assert.equal(res.familiesRemoved, 1);
-  assert.equal(store.allPlans().length, 28);
-  assert.equal(store.allFamilyHealth().length, 5);
+  assert.equal(store.allPlans().length, 32);
+  assert.equal(store.allFamilyHealth().length, 6);
   assert.equal(store.getFamilyHealth('hkg/an5'), null);
   assert.equal(store.getPlan('hkg-an5-mini'), null);
   assert.equal(store.transitionsForPlan('hkg-an5-mini').length, 0);

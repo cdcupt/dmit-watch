@@ -4,8 +4,12 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { WATCHLIST_FILE, SECRETS_FILE } from './paths.js';
 
+// Strict location/generation sets apply to the DMIT provider only; other
+// providers (whmcs) carry free-form lowercase slugs plus a page url.
 const VALID_LOCS = new Set(['lax', 'hkg', 'tyo']);
 const VALID_GENS = new Set(['as3', 'an4', 'an5']);
+const VALID_PROVIDERS = new Set(['dmit', 'whmcs']);
+const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 // ---- poll cadence knob ----------------------------------------------------
 // How often each plan is checked. The friendly form is a single number of
@@ -18,7 +22,7 @@ const CADENCE_JITTER_FRACTION = 0.1; // ±10% so the beat is never perfectly reg
 const CADENCE_ENV = 'DMIT_WATCH_CADENCE_SEC';
 
 /**
- * Load + validate config/watchlist.json (settings, families, 28 plans).
+ * Load + validate config/watchlist.json (settings, families, 32 plans).
  * Never reads secrets. Throws with an actionable message on any structural fault.
  */
 export function loadWatchlist(file = WATCHLIST_FILE) {
@@ -44,6 +48,18 @@ export function loadWatchlist(file = WATCHLIST_FILE) {
   }
 
   const familyKeys = new Set(families.map((f) => f.key));
+  const providerByFamily = new Map();
+  for (const f of families) {
+    const provider = f.provider ?? 'dmit';
+    if (!VALID_PROVIDERS.has(provider)) {
+      throw new Error(`family ${f.key} has unknown provider "${f.provider}"`);
+    }
+    if (provider !== 'dmit' && !f.url) {
+      throw new Error(`family ${f.key} (provider ${provider}) requires a "url" to poll`);
+    }
+    providerByFamily.set(f.key, provider);
+  }
+
   const seenIds = new Set();
   for (const p of plans) {
     for (const field of ['id', 'family', 'loc', 'gen', 'size', 'name', 'price', 'deepLink']) {
@@ -53,10 +69,15 @@ export function loadWatchlist(file = WATCHLIST_FILE) {
     }
     if (seenIds.has(p.id)) throw new Error(`duplicate plan id "${p.id}"`);
     seenIds.add(p.id);
-    if (!VALID_LOCS.has(p.loc)) throw new Error(`plan ${p.id} has unknown loc "${p.loc}"`);
-    if (!VALID_GENS.has(p.gen)) throw new Error(`plan ${p.id} has unknown gen "${p.gen}"`);
     if (!familyKeys.has(p.family)) {
       throw new Error(`plan ${p.id} references unknown family "${p.family}"`);
+    }
+    if (providerByFamily.get(p.family) === 'dmit') {
+      if (!VALID_LOCS.has(p.loc)) throw new Error(`plan ${p.id} has unknown loc "${p.loc}"`);
+      if (!VALID_GENS.has(p.gen)) throw new Error(`plan ${p.id} has unknown gen "${p.gen}"`);
+    } else {
+      if (!SLUG_RE.test(p.loc)) throw new Error(`plan ${p.id} has invalid loc slug "${p.loc}"`);
+      if (!SLUG_RE.test(p.gen)) throw new Error(`plan ${p.id} has invalid gen slug "${p.gen}"`);
     }
   }
 
