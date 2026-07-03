@@ -69,6 +69,11 @@ export function openStore(dbFile = DB_FILE) {
     planAll: db.prepare('SELECT * FROM plans ORDER BY loc, gen, size'),
     planByFamily: db.prepare('SELECT * FROM plans WHERE family = ? ORDER BY size'),
 
+    planDelete: db.prepare('DELETE FROM plans WHERE id = ?'),
+    famDelete: db.prepare('DELETE FROM family_health WHERE family = ?'),
+    transDeleteByPlan: db.prepare('DELETE FROM transitions WHERE plan_id = ?'),
+    tgDeleteByPlan: db.prepare('DELETE FROM telegram_log WHERE plan_id = ?'),
+
     transInsert: db.prepare(`
       INSERT INTO transitions (plan_id, from_status, to_status, ts, duration_in_stock)
       VALUES (:planId, :from, :to, :ts, :durationInStock)`),
@@ -95,13 +100,19 @@ export function openStore(dbFile = DB_FILE) {
    * Idempotently reconcile family_health + plans from the watchlist config.
    * Descriptive fields (name/price/family/popular/watch) are refreshed; runtime
    * state (status/last_known/armed/timestamps) is preserved across reseeds.
-   * @returns {{ families: number, plansInserted: number, plansUpdated: number }}
+   * SKUs/families dropped from the watchlist are DELETED (with their history) —
+   * a ghost row would otherwise keep feeding the panel header's degraded/blind
+   * aggregation forever (found retiring hkg/an5, 2026-07-03).
+   * @returns {{ families: number, plansInserted: number, plansUpdated: number,
+   *   plansRemoved: number, familiesRemoved: number }}
    */
   function seedFromWatchlist(watchlist) {
     const families = watchlist?.families ?? [];
     const plans = watchlist?.plans ?? [];
     let plansInserted = 0;
     let plansUpdated = 0;
+    let plansRemoved = 0;
+    let familiesRemoved = 0;
 
     db.exec('BEGIN');
     try {
@@ -128,12 +139,28 @@ export function openStore(dbFile = DB_FILE) {
           plansInserted += 1;
         }
       }
+      // Removal reconcile: history rows first (they reference plans), plans
+      // before family_health (plans.family references it).
+      const keepPlan = new Set(plans.map((p) => p.id));
+      const keepFam = new Set(families.map((f) => f.key));
+      for (const row of stmt.planAll.all()) {
+        if (keepPlan.has(row.id)) continue;
+        stmt.transDeleteByPlan.run(row.id);
+        stmt.tgDeleteByPlan.run(row.id);
+        stmt.planDelete.run(row.id);
+        plansRemoved += 1;
+      }
+      for (const f of stmt.famAll.all()) {
+        if (keepFam.has(f.family)) continue;
+        stmt.famDelete.run(f.family);
+        familiesRemoved += 1;
+      }
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');
       throw err;
     }
-    return { families: families.length, plansInserted, plansUpdated };
+    return { families: families.length, plansInserted, plansUpdated, plansRemoved, familiesRemoved };
   }
 
   // ---- plans ---------------------------------------------------------------

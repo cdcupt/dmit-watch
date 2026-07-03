@@ -253,3 +253,36 @@ test('openStore migrates a pre-blind family_health table in place', async () => 
     for (const suffix of ['', '-wal', '-shm']) rmSync(f + suffix, { force: true });
   }
 });
+
+test('seedFromWatchlist deletes retired plans/families and their history (no ghosts)', () => {
+  const wl = loadWatchlist();
+  // Simulate the pre-retirement world: the real watchlist plus a doomed family.
+  const doomedFam = { key: 'hkg/an5', loc: 'hkg', gen: 'an5', label: 'HKG·AN5' };
+  const doomedPlan = {
+    id: 'hkg-an5-mini', family: 'hkg/an5', loc: 'hkg', gen: 'an5', size: 'MINI',
+    name: 'HKG.AN5.Pro.MINI', price: '$92.90', popular: false,
+  };
+  const store = openStore(':memory:');
+  store.seedFromWatchlist({
+    settings: wl.settings,
+    families: [...wl.families, doomedFam],
+    plans: [...wl.plans, doomedPlan],
+  });
+  // Ghost state that used to poison the panel header + history forever.
+  store.setFamilyHealth('hkg/an5', { backoffLevel: 4, lastOutcome: '403' });
+  store.recordTransition({ planId: 'hkg-an5-mini', from: 'OUT', to: 'IN', ts: 1 });
+  store.logTelegram({ planId: 'hkg-an5-mini', ts: 2, sentOk: true });
+
+  const res = store.seedFromWatchlist(wl); // the retirement re-seed
+  assert.equal(res.plansRemoved, 1);
+  assert.equal(res.familiesRemoved, 1);
+  assert.equal(store.allPlans().length, 28);
+  assert.equal(store.allFamilyHealth().length, 5);
+  assert.equal(store.getFamilyHealth('hkg/an5'), null);
+  assert.equal(store.getPlan('hkg-an5-mini'), null);
+  assert.equal(store.transitionsForPlan('hkg-an5-mini').length, 0);
+  assert.ok(store.recentTelegram().every((r) => r.plan_id !== 'hkg-an5-mini'));
+  // Surviving rows untouched.
+  assert.equal(store.getPlan('hkg-as3-tiny').status, 'OUT');
+  store.close();
+});
