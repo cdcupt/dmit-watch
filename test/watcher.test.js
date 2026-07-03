@@ -348,3 +348,69 @@ test('blind escalation: persistent blind flips escalate:true and persists for th
   assert.equal(h.blind_reasons, null);
   assert.equal(h.blind_since, null);
 });
+
+test('restart hydration: a pre-restart blind onset survives and escalates immediately', async () => {
+  const wl = loadWatchlist();
+  const HOUR = 3_600_000;
+  let t = 1_000_000_000;
+  const store = openStore(':memory:');
+  store.seedFromWatchlist(wl);
+  // The previous process saw hkg/as3 go blind 4h ago (past blindEscalateSec=3h).
+  const oldOnset = t - 4 * HOUR;
+  store.setFamilyHealth('hkg/as3', { blind: true, blindReasons: 'persistent-unknown', blindSince: oldOnset });
+
+  const watcher = createWatcher({
+    store,
+    watchlist: wl,
+    now: () => t,
+    pageSource: makeFixtureSource({ 'hkg/as3': () => ({ ok: true, status: 200, pageText: readFixture('garbled.txt') }) }),
+  });
+  const blinds = [];
+  watcher.on('blind', (b) => blinds.push(b));
+
+  // Re-confirmation grace: the persisted row must survive the first cycles.
+  await watcher.pollFamily('hkg/as3');
+  t += 60_000;
+  await watcher.pollFamily('hkg/as3');
+  let h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 1, 'grace period must not wipe the persisted blind row');
+  assert.equal(h.blind_since, oldOnset);
+  assert.equal(blinds.length, 0);
+
+  t += 60_000;
+  await watcher.pollFamily('hkg/as3'); // 3rd bad cycle → re-confirmed
+  assert.equal(blinds.length, 1);
+  assert.equal(blinds[0].sinceMs, oldOnset, 'onset must carry across the restart');
+  assert.equal(blinds[0].escalate, true, 'already past blindEscalateSec → escalate now, not in another 3h');
+  h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind_since, oldOnset);
+});
+
+test('restart hydration: a family that recovered while the process was down clears cleanly', async () => {
+  const wl = loadWatchlist();
+  let t = 1_000_000_000;
+  const store = openStore(':memory:');
+  store.seedFromWatchlist(wl);
+  store.setFamilyHealth('hkg/as3', { blind: true, blindReasons: 'persistent-unknown', blindSince: t - 7_200_000 });
+
+  const watcher = createWatcher({
+    store,
+    watchlist: wl,
+    now: () => t,
+    pageSource: makeFixtureSource({ 'hkg/as3': familyFixtures(wl, 'hkg/as3') }), // healthy all-OUT render
+  });
+  const blinds = [];
+  const cleared = [];
+  watcher.on('blind', (b) => blinds.push(b));
+  watcher.on('blind:cleared', (b) => cleared.push(b));
+
+  for (let i = 0; i < 3; i += 1) {
+    await watcher.pollFamily('hkg/as3');
+    t += 60_000;
+  }
+  assert.equal(blinds.length, 0);
+  assert.equal(cleared.length, 1, 'recovery-during-downtime clears once re-confirmed');
+  const h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 0);
+  assert.equal(h.blind_since, null);
+});

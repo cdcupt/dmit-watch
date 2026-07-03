@@ -88,6 +88,16 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
   // family restocks at once (the 2026-07-03 HKG+TYO mass restock produced 0 local
   // OUT labels and was suppressed by the old per-family gate).
   const lastOutLabels = new Map();
+  const pollsSinceStart = new Map(); // familyKey -> polls this process (blind re-confirmation grace)
+
+  // A restart must not reset a blind family's escalation clock: carry the
+  // persisted onset forward and give each family blindCycles polls to
+  // re-confirm (streak counters are in-memory and need that many cycles).
+  const hydratedBlind = new Map(); // familyKey -> { sinceMs } from family_health
+  for (const f of families) {
+    const h = store.getFamilyHealth?.(f.key);
+    if (h?.blind) hydratedBlind.set(f.key, { sinceMs: h.blind_since ?? null });
+  }
   const backoffLevel = new Map(); // familyKey -> int
   const timers = new Map(); // familyKey -> Timeout
   let running = false;
@@ -227,9 +237,14 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
       blockedStreak: blockedStreak.get(family.key) ?? 0,
     });
     const was = blindState.get(family.key) ?? false;
+    const polls = bump(pollsSinceStart, family.key);
     if (assessment.blind) {
-      if (!was) blindSince.set(family.key, ts);
-      const sinceMs = blindSince.get(family.key) ?? ts;
+      const carried = hydratedBlind.get(family.key);
+      hydratedBlind.delete(family.key);
+      // Onset = earliest known: the pre-restart persisted onset if one was
+      // carried over, else the moment this process first saw it.
+      if (!blindSince.has(family.key)) blindSince.set(family.key, carried?.sinceMs ?? ts);
+      const sinceMs = blindSince.get(family.key);
       // A short blind spell is panel noise; one that persists past
       // blindEscalateSec means "go look manually" and must reach Telegram
       // (the 2026-07-03 restock sat blind for ~2 days, panel-only).
@@ -243,11 +258,21 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
         lastBlindEmit.set(family.key, ts);
         emitter.emit('blind', { family, reasons: assessment.reasons, plans: assessment.plans, escalate, sinceMs });
       }
-    } else if (was) {
-      blindState.set(family.key, false);
-      blindSince.delete(family.key);
-      lastBlindEmit.delete(family.key); // recovery: clear so the next blind re-emits immediately
-      emitter.emit('blind:cleared', { family });
+    } else {
+      const carried = hydratedBlind.get(family.key);
+      if (carried && polls < blindCycles) {
+        // Was blind before the restart and the in-memory streaks can't confirm
+        // either way yet — keep the persisted onset untouched so neither the
+        // panel's "blind for X" nor the escalation clock resets.
+        return assessment;
+      }
+      if (carried) hydratedBlind.delete(family.key);
+      if (was || carried) {
+        blindState.set(family.key, false);
+        blindSince.delete(family.key);
+        lastBlindEmit.delete(family.key); // recovery: clear so the next blind re-emits immediately
+        emitter.emit('blind:cleared', { family });
+      }
     }
     // Persist every poll so /api/health + the panel always reflect the live
     // blind state, including across a process restart.

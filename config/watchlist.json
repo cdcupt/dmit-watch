@@ -1,18 +1,18 @@
 {
   "_meta": {
-    "source": "docs/pipeline/recon-premium.md (v3, CONFIRMED 2026-06-27)",
-    "note": "All 33 Premium plans are OUT OF STOCK at recon time. Prices/structure are stable; stock is read live.",
+    "source": "docs/pipeline/recon-premium.md (v3, CONFIRMED 2026-06-27); hkg/an5 retired 2026-07-03 (DMIT withdrew the generation — its cart URL serves AS3 content)",
+    "note": "28 Premium plans watched. HKG.AS3 + 5/7 of TYO.AS3 were IN STOCK at the 2026-07-03 revision; stock is read live.",
     "counts": {
-      "total": 33,
+      "total": 28,
       "byLocation": {
         "LAX": 16,
-        "HKG": 10,
+        "HKG": 5,
         "TYO": 7
       },
       "byGeneration": {
         "AS3": 18,
         "AN4": 5,
-        "AN5": 10
+        "AN5": 5
       }
     },
     "excludedNetworks": [
