@@ -107,10 +107,10 @@ test('a valid watchlist loads and round-trips through writeWatchlist', () => {
   }
 });
 
-test('the real config/watchlist.json is valid (28 plans, 5 families — hkg/an5 retired)', () => {
+test('the real config/watchlist.json is valid (32 plans, 6 families — hkg/an5 retired, qq.pw added)', () => {
   const wl = loadWatchlist();
-  assert.equal(wl.plans.length, 28);
-  assert.equal(wl.families.length, 5);
+  assert.equal(wl.plans.length, 32);
+  assert.equal(wl.families.length, 6);
   // DMIT's hkg/an5 cart URL serves AS3 content since ~2026-06-28 (generation
   // withdrawn) — watching it is permanent blind noise.
   assert.equal(wl.families.find((f) => f.key === 'hkg/an5'), undefined);

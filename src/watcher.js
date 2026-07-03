@@ -17,6 +17,7 @@
 
 import { EventEmitter } from 'node:events';
 import { classifyFamily, computeEdges, assessBlindness, STOCK } from './detect.js';
+import { classifyWhmcsFamily, createHttpPageSource } from './whmcs.js';
 import { createCdpPageSource, familyUrl } from './chrome.js';
 import { nextDelayMs as computeNextDelayMs } from './backoff.js';
 import { resolveCadenceSec } from './config.js';
@@ -75,6 +76,19 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
       logger,
     });
 
+  // Providers: 'dmit' (default) reads through the dedicated Chrome; 'whmcs'
+  // pages are plain server-rendered HTML → a fetch-based source, no Chrome.
+  // An injected pageSource (tests/smoke) always wins for every family.
+  const isWhmcs = (family) => family?.provider === 'whmcs';
+  let httpSource = null;
+  function sourceFor(family) {
+    if (!pageSource && isWhmcs(family)) {
+      httpSource ??= createHttpPageSource({ logger });
+      return httpSource;
+    }
+    return source;
+  }
+
   // ---- per-family streak / health state (in-memory; persisted summaries go to DB) ----
   const unknownStreak = new Map(); // planId -> consecutive UNKNOWN cycles
   const markerMissStreak = new Map(); // familyKey -> consecutive markers-missing cycles
@@ -110,9 +124,10 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
   // page regardless of which page source is injected.
   let readChain = Promise.resolve();
   function serializedRead(family) {
+    const src = sourceFor(family);
     const run = readChain.then(
-      () => source.readFamily(family),
-      () => source.readFamily(family), // a prior read's rejection must not stall the chain
+      () => src.readFamily(family),
+      () => src.readFamily(family), // a prior read's rejection must not stall the chain
     );
     readChain = run.then(
       () => {},
@@ -301,25 +316,31 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
       read = { ok: false, status: 0, pageText: '', error: err.message, chromeState: 'DOWN' };
     }
 
-    const detection = read.ok
-      ? classifyFamily({
-          pageText: read.pageText,
-          family,
-          plans,
-          controlGroupMinK,
-          externalOutCount: externalOutCountFor(familyKey, ts),
-        })
-      : buildUnreadableDetection(family, plans, read);
+    const detection = !read.ok
+      ? buildUnreadableDetection(family, plans, read)
+      : isWhmcs(family)
+        ? classifyWhmcsFamily({ pageText: read.pageText, family, plans })
+        : classifyFamily({
+            pageText: read.pageText,
+            family,
+            plans,
+            controlGroupMinK,
+            externalOutCount: externalOutCountFor(familyKey, ts),
+          });
 
     // Record this family's own OUT labels as control evidence for the others.
     // An untrustworthy read contributes nothing (count 0, and its stale entry
-    // stops vouching once it ages past EXTERNAL_CONTROL_MAX_AGE_MS).
-    lastOutLabels.set(familyKey, {
-      count: detection.markersPresent
-        ? detection.results.filter((r) => r.reason === 'out-of-stock-label').length
-        : 0,
-      ts,
-    });
+    // stops vouching once it ages past EXTERNAL_CONTROL_MAX_AGE_MS). WHMCS
+    // families never take part: their stock is an explicit quantity, and their
+    // page layout proves nothing about DMIT's.
+    if (!isWhmcs(family)) {
+      lastOutLabels.set(familyKey, {
+        count: detection.markersPresent
+          ? detection.results.filter((r) => r.reason === 'out-of-stock-label').length
+          : 0,
+        ts,
+      });
+    }
 
     const storedById = {};
     for (const p of plans) storedById[p.id] = store.getPlan(p.id);
@@ -332,7 +353,11 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
       const blind = evaluateBlind(family, plans, ts);
       emitEdges(family, plans, edges);
 
-      store.touchHeartbeat({ tickTs: ts, chromeSession: read.chromeState ?? (read.ok ? 'UP' : 'DOWN') });
+      // WHMCS reads never touch the Chrome lamp (null preserves the last state).
+      store.touchHeartbeat({
+        tickTs: ts,
+        chromeSession: isWhmcs(family) ? null : (read.chromeState ?? (read.ok ? 'UP' : 'DOWN')),
+      });
 
       const summary = {
         family: familyKey,
@@ -406,6 +431,7 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
     timers.clear();
     try {
       await source.close?.();
+      await httpSource?.close?.();
     } catch {
       /* ignore */
     }

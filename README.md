@@ -87,6 +87,26 @@ desk-side view. Logs: `tail -f ~/.dmit-watch/watch.err.log`.
 - **`~/.dmit-watch/config`** — your Telegram secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`).
   Kept outside the repo, `chmod 600`, never committed.
 
+### Watching other providers (WHMCS stores)
+
+The watcher is multi-provider. Besides DMIT's Cloudflare-protected cart (which needs the dedicated
+Chrome), any **WHMCS store-group page** that renders a per-product `N Available` badge can be watched
+over plain HTTPS — no browser involved. Add a family with `"provider": "whmcs"` and a `"url"`, plus one
+plan per product whose `name` matches the product title on the page exactly:
+
+```jsonc
+// family
+{ "key": "hnl/vds", "provider": "whmcs", "loc": "hnl", "gen": "vds", "label": "HNL·VDS",
+  "planCount": 4, "url": "https://qq.pw/store/residential-vds-with-dedicated-ip", ... }
+// plan
+{ "id": "hnl-vds-intern", "family": "hnl/vds", "name": "Dedicate IP VDS Intern",
+  "price": "$35.00", "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vds-entry", ... }
+```
+
+Stock is the explicit badge: `qty > 0` → **IN** (alert), `0 Available` → OUT, badge/name missing →
+UNKNOWN (never promoted to IN; feeds the same blind-watcher net). Non-monthly billing can be labeled
+with an optional plan `"period"` (e.g. `"quarter"`). Restart the agent after editing.
+
 ## Privacy & safety
 
 - **No secrets in the repo.** Telegram credentials live only in `~/.dmit-watch/config`.

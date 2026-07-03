@@ -83,17 +83,17 @@ function openEventStream(onEvent) {
 
 const deadline = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms).unref?.());
 
-test('GET /api/state returns 28 plans, counts, and fixed datacenter order', async () => {
+test('GET /api/state returns 32 plans, counts, and fixed datacenter order', async () => {
   const s = await getJson('/api/state');
-  assert.equal(flat(s).length, 28);
-  assert.equal(s.counts.total, 28);
-  assert.deepEqual(s.counts.byLoc, { lax: 16, hkg: 5, tyo: 7 });
-  assert.deepEqual(s.datacenters.map((dc) => dc.loc), ['lax', 'hkg', 'tyo']);
+  assert.equal(flat(s).length, 32);
+  assert.equal(s.counts.total, 32);
+  assert.deepEqual(s.counts.byLoc, { lax: 16, hkg: 5, tyo: 7, hnl: 4 });
+  assert.deepEqual(s.datacenters.map((dc) => dc.loc), ['lax', 'hkg', 'tyo', 'hnl']);
 });
 
-test('GET /api/health returns 5 families + telegram array', async () => {
+test('GET /api/health returns 6 families + telegram array', async () => {
   const h = await getJson('/api/health');
-  assert.equal(h.families.length, 5);
+  assert.equal(h.families.length, 6);
   assert.ok(Array.isArray(h.telegram));
 });
 

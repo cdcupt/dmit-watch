@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Smoke: boot the localhost panel server against an in-memory store seeded with
-// the 28 Premium plans (one flipped IN to exercise the in-stock path + alarm),
+// the 32 watched plans (one flipped IN to exercise the in-stock path + alarm),
 // then hit the REST surface and assert the data contract — no live store needed.
 //
 //   npm run smoke:server
@@ -41,12 +41,12 @@ async function main() {
   const flatPlans = state.datacenters.flatMap((dc) => dc.generations.flatMap((g) => g.plans));
   console.log(`/api/state: ${state.datacenters.length} datacenters · ${flatPlans.length} plans`);
   console.log(`  counts: ${JSON.stringify(state.counts)}`);
-  must(flatPlans.length === 28, `expected 28 plans, got ${flatPlans.length}`);
-  must(state.counts.total === 28, `counts.total should be 28, got ${state.counts.total}`);
+  must(flatPlans.length === 32, `expected 32 plans, got ${flatPlans.length}`);
+  must(state.counts.total === 32, `counts.total should be 32, got ${state.counts.total}`);
   must(state.counts.in === 1, `counts.in should be 1, got ${state.counts.in}`);
-  must(state.counts.waiting === 27, `counts.waiting should be 27, got ${state.counts.waiting}`);
-  must(state.counts.byLoc.lax === 16 && state.counts.byLoc.hkg === 5 && state.counts.byLoc.tyo === 7, 'byLoc mismatch');
-  must(state.counts.byGen.as3 === 18 && state.counts.byGen.an4 === 5 && state.counts.byGen.an5 === 5, 'byGen mismatch');
+  must(state.counts.waiting === 31, `counts.waiting should be 31, got ${state.counts.waiting}`);
+  must(state.counts.byLoc.lax === 16 && state.counts.byLoc.hkg === 5 && state.counts.byLoc.tyo === 7 && state.counts.byLoc.hnl === 4, 'byLoc mismatch');
+  must(state.counts.byGen.as3 === 18 && state.counts.byGen.an4 === 5 && state.counts.byGen.an5 === 5 && state.counts.byGen.vds === 4, 'byGen mismatch');
   must(state.datacenters[0].loc === 'lax' && state.datacenters[2].loc === 'tyo', 'datacenter order should be LAX→…→TYO');
   const inPlan = flatPlans.find((p) => p.id === inId);
   must(inPlan && inPlan.status === 'in' && inPlan.deepLink.includes('cart.php'), 'flipped plan should be in-stock w/ deep link');
@@ -54,7 +54,7 @@ async function main() {
   // ---- /api/health -------------------------------------------------------
   const health = await j('/api/health');
   console.log(`/api/health: ${health.families.length} families · chrome=${health.chrome.state} · status=${health.scheduler.status}`);
-  must(health.families.length === 5, `expected 5 families, got ${health.families.length}`);
+  must(health.families.length === 6, `expected 6 families, got ${health.families.length}`);
   must(Array.isArray(health.telegram), 'health.telegram must be an array');
 
   // ---- /api/history ------------------------------------------------------
@@ -78,7 +78,7 @@ async function main() {
   await server.stop();
   store.close();
   line();
-  console.log('OK: localhost server serves /api/state (28 plans, counts), /api/health, /api/history, and the panel.');
+  console.log('OK: localhost server serves /api/state (32 plans, counts), /api/health, /api/history, and the panel.');
 }
 
 main().catch((err) => {

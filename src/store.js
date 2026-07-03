@@ -89,7 +89,8 @@ export function openStore(dbFile = DB_FILE) {
     hbUpsert: db.prepare(`
       INSERT INTO heartbeat (id, tick_ts, uptime_started, chrome_session)
       VALUES (1, :tickTs, :uptimeStarted, :chromeSession)
-      ON CONFLICT(id) DO UPDATE SET tick_ts = excluded.tick_ts, chrome_session = excluded.chrome_session`),
+      ON CONFLICT(id) DO UPDATE SET tick_ts = excluded.tick_ts,
+        chrome_session = COALESCE(excluded.chrome_session, heartbeat.chrome_session)`),
 
     pruneTrans: db.prepare('DELETE FROM transitions WHERE ts < ?'),
     pruneTg: db.prepare('DELETE FROM telegram_log WHERE ts < ?'),
