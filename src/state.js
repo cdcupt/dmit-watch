@@ -181,6 +181,9 @@ export function buildHealth({ watchlist, store, now = Date.now(), telegramLimit 
       lastPollMs: h?.last_poll_ts ?? null,
       outcome: h?.last_outcome ?? null,
       chromeState: h?.chrome_state ?? null,
+      blind: !!h?.blind,
+      blindReasons: h?.blind_reasons ? String(h.blind_reasons).split(',') : [],
+      blindSinceMs: h?.blind_since ?? null,
     };
   });
 

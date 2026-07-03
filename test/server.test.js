@@ -83,17 +83,17 @@ function openEventStream(onEvent) {
 
 const deadline = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms).unref?.());
 
-test('GET /api/state returns 33 plans, counts, and fixed datacenter order', async () => {
+test('GET /api/state returns 28 plans, counts, and fixed datacenter order', async () => {
   const s = await getJson('/api/state');
-  assert.equal(flat(s).length, 33);
-  assert.equal(s.counts.total, 33);
-  assert.deepEqual(s.counts.byLoc, { lax: 16, hkg: 10, tyo: 7 });
+  assert.equal(flat(s).length, 28);
+  assert.equal(s.counts.total, 28);
+  assert.deepEqual(s.counts.byLoc, { lax: 16, hkg: 5, tyo: 7 });
   assert.deepEqual(s.datacenters.map((dc) => dc.loc), ['lax', 'hkg', 'tyo']);
 });
 
-test('GET /api/health returns 6 families + telegram array', async () => {
+test('GET /api/health returns 5 families + telegram array', async () => {
   const h = await getJson('/api/health');
-  assert.equal(h.families.length, 6);
+  assert.equal(h.families.length, 5);
   assert.ok(Array.isArray(h.telegram));
 });
 
@@ -144,24 +144,24 @@ test('SSE: connect replays a snapshot, and broadcast(edge) pushes alert + plan',
 });
 
 test('POST /api/silence clears the alarm flag but keeps the plan in stock', async () => {
-  store.setPlanState('hkg-an5-mini', { status: 'IN', lastKnown: 'IN', lastChange: Date.now() });
+  store.setPlanState('hkg-as3-mini', { status: 'IN', lastKnown: 'IN', lastChange: Date.now() });
   const wl = server.watchlist;
-  const plan = wl.plans.find((p) => p.id === 'hkg-an5-mini');
+  const plan = wl.plans.find((p) => p.id === 'hkg-as3-mini');
   server.broadcast('edge', { plan, family: wl.families.find((f) => f.key === plan.family), deepLink: plan.deepLink });
 
   let s = await getJson('/api/state');
-  let p = flat(s).find((x) => x.id === 'hkg-an5-mini');
+  let p = flat(s).find((x) => x.id === 'hkg-as3-mini');
   assert.equal(p.alarm, true);
 
   const res = await fetch(base + '/api/silence', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ id: 'hkg-an5-mini' }),
+    body: JSON.stringify({ id: 'hkg-as3-mini' }),
   });
   assert.ok(res.ok);
 
   s = await getJson('/api/state');
-  p = flat(s).find((x) => x.id === 'hkg-an5-mini');
+  p = flat(s).find((x) => x.id === 'hkg-as3-mini');
   assert.equal(p.alarm, false);
   assert.equal(p.status, 'in'); // silenced, not removed
 });

@@ -31,6 +31,7 @@
     "cooldownSec": 90,
     "blindCycles": 3,
     "blindRenotifySec": 3600,
+    "blindEscalateSec": 10800,
     "controlGroupMinK": 3,
     "chromeDebugPort": 9444,
     "panelPort": 7331
@@ -95,21 +96,6 @@
       "cpu": "EPYC 7003",
       "planCount": 5,
       "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
-    },
-    {
-      "key": "hkg/an5",
-      "loc": "hkg",
-      "gen": "an5",
-      "label": "HKG·AN5",
-      "locCode": "HKG",
-      "city": "Hong Kong",
-      "country": "China",
-      "flag": "🇭🇰",
-      "regionSlug": "hong-kong",
-      "genLabel": "AN5",
-      "cpu": "EPYC 9005",
-      "planCount": 5,
-      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
     },
     {
       "key": "tyo/as3",
@@ -358,61 +344,6 @@
       "price": "$239.90",
       "popular": false,
       "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
-    },
-    {
-      "id": "hkg-an5-mini",
-      "family": "hkg/an5",
-      "loc": "hkg",
-      "gen": "an5",
-      "size": "MINI",
-      "name": "HKG.AN5.Pro.MINI",
-      "price": "$149.90",
-      "popular": false,
-      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
-    },
-    {
-      "id": "hkg-an5-micro",
-      "family": "hkg/an5",
-      "loc": "hkg",
-      "gen": "an5",
-      "size": "MICRO",
-      "name": "HKG.AN5.Pro.MICRO",
-      "price": "$199.90",
-      "popular": false,
-      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
-    },
-    {
-      "id": "hkg-an5-medium",
-      "family": "hkg/an5",
-      "loc": "hkg",
-      "gen": "an5",
-      "size": "MEDIUM",
-      "name": "HKG.AN5.Pro.MEDIUM",
-      "price": "$279.90",
-      "popular": false,
-      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
-    },
-    {
-      "id": "hkg-an5-large",
-      "family": "hkg/an5",
-      "loc": "hkg",
-      "gen": "an5",
-      "size": "LARGE",
-      "name": "HKG.AN5.Pro.LARGE",
-      "price": "$359.90",
-      "popular": false,
-      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
-    },
-    {
-      "id": "hkg-an5-giant",
-      "family": "hkg/an5",
-      "loc": "hkg",
-      "gen": "an5",
-      "size": "GIANT",
-      "name": "HKG.AN5.Pro.GIANT",
-      "price": "$759.90",
-      "popular": false,
-      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
     },
     {
       "id": "tyo-as3-tiny",

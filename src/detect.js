@@ -100,6 +100,11 @@ export function cardSegment(pageText, name, boundaryNames) {
  * (name+price parsed, expected plan-count rendered, ≥K control-group plans still
  * OUT this cycle); anything else is UNKNOWN.
  *
+ * The control group is GLOBAL: `externalOutCount` carries fresh OUT labels the
+ * watcher saw on OTHER families' pages, so a family-wide restock (zero local OUT
+ * labels — exactly the 2026-07-03 HKG+TYO event) still clears the gate as long
+ * as any family's sold-out wall proves the reader parses the current layout.
+ *
  * @returns page markers spread + { controlOutCount, results: Array<{id,name,stock,reason}> }
  */
 export function classifyFamily({

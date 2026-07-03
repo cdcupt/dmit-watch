@@ -15,10 +15,10 @@ function freshStore() {
   return store;
 }
 
-test('seeds exactly 33 plans across 6 families', () => {
+test('seeds exactly 28 plans across 5 families', () => {
   const store = freshStore();
-  assert.equal(store.allPlans().length, 33);
-  assert.equal(store.allFamilyHealth().length, 6);
+  assert.equal(store.allPlans().length, 28);
+  assert.equal(store.allFamilyHealth().length, 5);
   store.close();
 });
 
@@ -40,8 +40,8 @@ test('reseed is idempotent and preserves runtime state', () => {
 
   const again = store.seedFromWatchlist(wl);
   assert.equal(again.plansInserted, 0);
-  assert.equal(again.plansUpdated, 33);
-  assert.equal(store.allPlans().length, 33); // no duplicates
+  assert.equal(again.plansUpdated, 28);
+  assert.equal(store.allPlans().length, 28); // no duplicates
 
   const p = store.getPlan('lax-an4-medium');
   assert.equal(p.last_known, 'IN'); // runtime state survived the reseed
@@ -73,8 +73,8 @@ test('logs telegram sends with sent_ok coerced to 0/1', () => {
 
 test('family health backoff + heartbeat singleton', () => {
   const store = freshStore();
-  store.setFamilyHealth('hkg/an5', { backoffLevel: 2, lastOutcome: '403' });
-  assert.equal(store.getFamilyHealth('hkg/an5').backoff_level, 2);
+  store.setFamilyHealth('hkg/as3', { backoffLevel: 2, lastOutcome: '403' });
+  assert.equal(store.getFamilyHealth('hkg/as3').backoff_level, 2);
 
   const t1 = store.touchHeartbeat({ tickTs: 100, chromeSession: 'UP' });
   const t2 = store.touchHeartbeat({ tickTs: 200, chromeSession: 'DOWN' });
@@ -192,9 +192,64 @@ test('on-disk store opens WAL, persists, and prune+VACUUM compacts', () => {
     store.recordTransition({ planId: 'lax-an4-medium', from: 'IN', to: 'OUT', ts: old - 100 * 86_400_000 });
     const res = store.prune({ days: 90, now: old, vacuum: true }); // default-vacuum branch
     assert.equal(res.transitions, 1);
-    assert.equal(store.allPlans().length, 33);
+    assert.equal(store.allPlans().length, 28);
     store.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---- blind persistence + additive migration (2026-07-03 fix) ----------------
+
+test('setFamilyHealth writes, preserves, and clears the blind fields as a unit', () => {
+  const store = freshStore();
+
+  store.setFamilyHealth('hkg/as3', { blind: true, blindReasons: 'persistent-unknown', blindSince: 123 });
+  let h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 1);
+  assert.equal(h.blind_reasons, 'persistent-unknown');
+  assert.equal(h.blind_since, 123);
+
+  // A non-blind update (poll outcome) must NOT disturb the blind state.
+  store.setFamilyHealth('hkg/as3', { lastOutcome: 'ok' });
+  h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 1);
+  assert.equal(h.blind_since, 123);
+
+  // Recovery clears all three together.
+  store.setFamilyHealth('hkg/as3', { blind: false, blindReasons: null, blindSince: null });
+  h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 0);
+  assert.equal(h.blind_reasons, null);
+  assert.equal(h.blind_since, null);
+  store.close();
+});
+
+test('openStore migrates a pre-blind family_health table in place', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const f = join(tmpdir(), `dmit-migrate-${process.pid}.db`);
+  rmSync(f, { force: true });
+  const raw = new DatabaseSync(f);
+  // The shipped v0 table — no blind columns.
+  raw.exec(`CREATE TABLE family_health (
+    family TEXT PRIMARY KEY, loc TEXT NOT NULL, gen TEXT NOT NULL, label TEXT,
+    last_poll_ts INTEGER, backoff_level INTEGER NOT NULL DEFAULT 0,
+    last_outcome TEXT, chrome_state TEXT);`);
+  raw.exec(`INSERT INTO family_health (family, loc, gen) VALUES ('lax/as3', 'lax', 'as3')`);
+  raw.close();
+
+  try {
+    const store = openStore(f); // additive migration runs here
+    assert.equal(store.getFamilyHealth('lax/as3').blind, 0); // default back-filled
+    store.setFamilyHealth('lax/as3', { blind: true, blindReasons: 'persistent-block', blindSince: 42 });
+    assert.equal(store.getFamilyHealth('lax/as3').blind, 1);
+    store.close();
+
+    // Re-open: migration is idempotent.
+    const again = openStore(f);
+    assert.equal(again.getFamilyHealth('lax/as3').blind, 1);
+    again.close();
+  } finally {
+    for (const suffix of ['', '-wal', '-shm']) rmSync(f + suffix, { force: true });
   }
 });

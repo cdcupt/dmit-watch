@@ -23,7 +23,7 @@ test('region mapping: LAX→los-angeles, HKG→hong-kong, TYO→tokyo (from the 
   const wl = loadWatchlist();
   const cases = [
     ['lax/as3', 'region=los-angeles'],
-    ['hkg/an5', 'region=hong-kong'],
+    ['hkg/as3', 'region=hong-kong'],
     ['tyo/as3', 'region=tokyo'],
   ];
   for (const [key, frag] of cases) {

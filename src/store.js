@@ -24,6 +24,18 @@ export function openStore(dbFile = DB_FILE) {
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA_SQL);
 
+  // Additive migration: CREATE TABLE IF NOT EXISTS never alters an existing DB,
+  // so columns added after first ship are back-filled here (idempotent).
+  const famCols = new Set(db.prepare('PRAGMA table_info(family_health)').all().map((c) => c.name));
+  const FAMILY_HEALTH_MIGRATIONS = [
+    ['blind', "ALTER TABLE family_health ADD COLUMN blind INTEGER NOT NULL DEFAULT 0"],
+    ['blind_reasons', 'ALTER TABLE family_health ADD COLUMN blind_reasons TEXT'],
+    ['blind_since', 'ALTER TABLE family_health ADD COLUMN blind_since INTEGER'],
+  ];
+  for (const [col, sql] of FAMILY_HEALTH_MIGRATIONS) {
+    if (!famCols.has(col)) db.exec(sql);
+  }
+
   // ---- prepared statements -------------------------------------------------
   const stmt = {
     famUpsert: db.prepare(`
@@ -33,7 +45,8 @@ export function openStore(dbFile = DB_FILE) {
     famHealthSet: db.prepare(`
       UPDATE family_health
          SET last_poll_ts = :lastPollTs, backoff_level = :backoffLevel,
-             last_outcome = :lastOutcome, chrome_state = :chromeState
+             last_outcome = :lastOutcome, chrome_state = :chromeState,
+             blind = :blind, blind_reasons = :blindReasons, blind_since = :blindSince
        WHERE family = :family`),
     famGet: db.prepare('SELECT * FROM family_health WHERE family = ?'),
     famAll: db.prepare('SELECT * FROM family_health ORDER BY family'),
@@ -177,7 +190,10 @@ export function openStore(dbFile = DB_FILE) {
   const recentTelegram = (limit = 50) => stmt.tgRecent.all(limit);
 
   // ---- family health -------------------------------------------------------
-  function setFamilyHealth(family, { lastPollTs, backoffLevel, lastOutcome, chromeState } = {}) {
+  function setFamilyHealth(
+    family,
+    { lastPollTs, backoffLevel, lastOutcome, chromeState, blind, blindReasons, blindSince } = {},
+  ) {
     const cur = stmt.famGet.get(family);
     if (!cur) throw new Error(`unknown family "${family}"`);
     stmt.famHealthSet.run({
@@ -186,6 +202,11 @@ export function openStore(dbFile = DB_FILE) {
       backoffLevel: backoffLevel === undefined ? cur.backoff_level : backoffLevel,
       lastOutcome: lastOutcome ?? cur.last_outcome,
       chromeState: chromeState ?? cur.chrome_state,
+      // blind fields update as a unit: blindReasons/blindSince may be null on
+      // purpose (recovery), so `blind === undefined` decides preserve-vs-write.
+      blind: blind === undefined ? cur.blind : bool(blind),
+      blindReasons: blind === undefined ? cur.blind_reasons : (blindReasons ?? null),
+      blindSince: blind === undefined ? cur.blind_since : (blindSince ?? null),
     });
     return stmt.famGet.get(family);
   }

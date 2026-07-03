@@ -216,3 +216,45 @@ test('FUZZ: structurally-anchored pages with NO price/orderable signal never go 
     assert.equal(det.results.some((r) => r.stock === STOCK.IN), false, `case ${i} leaked an IN`);
   }
 });
+
+// ---- global (external) control group — the 2026-07-03 mass-restock fix ------
+
+test('mass restock (zero local OUT labels): externalOutCount clears the control gate → IN', () => {
+  // A family-wide restock renders NO local OUT label at all. Under the old
+  // per-family gate that read was indistinguishable from a broken parser and
+  // every plan sat UNKNOWN forever — the exact event the watcher exists for.
+  const restocked = readFixture('all-out.txt').replace(/Out of Stock/gi, '');
+
+  const alone = classifyFamily({ pageText: restocked, family, plans, controlGroupMinK: K });
+  for (const r of alone.results) {
+    assert.equal(r.stock, STOCK.UNKNOWN, `${r.name} must stay UNKNOWN without any control`);
+    assert.match(r.reason, /control/);
+  }
+
+  const withControl = classifyFamily({
+    pageText: restocked, family, plans, controlGroupMinK: K, externalOutCount: 6,
+  });
+  for (const r of withControl.results) assert.equal(r.stock, STOCK.IN, `${r.name} should be IN`);
+  assert.equal(withControl.controlOutCount, 6);
+});
+
+test('externalOutCount adds to local OUT labels (partial restock, high K)', () => {
+  // orderable.synthetic: 1 candidate + 4 local OUT. Require K=6: fails alone,
+  // clears with 2 external OUT labels vouching from other families.
+  const det0 = classifyFamily({ pageText: readFixture('orderable.synthetic.txt'), family, plans, controlGroupMinK: 6 });
+  assert.equal(statusOf(det0, 'lax-an5-mini'), STOCK.UNKNOWN);
+
+  const det2 = classifyFamily({
+    pageText: readFixture('orderable.synthetic.txt'), family, plans, controlGroupMinK: 6, externalOutCount: 2,
+  });
+  assert.equal(statusOf(det2, 'lax-an5-mini'), STOCK.IN);
+  assert.equal(det2.controlOutCount, 6);
+});
+
+test('external control never rescues an untrustworthy page (structure gates first)', () => {
+  const det = classifyFamily({
+    pageText: readFixture('cf-challenge.txt'), family, plans, controlGroupMinK: K, externalOutCount: 20,
+  });
+  assert.equal(det.markersPresent, false);
+  for (const r of det.results) assert.equal(r.stock, STOCK.UNKNOWN);
+});

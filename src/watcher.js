@@ -9,7 +9,7 @@
 // Events (EventEmitter):
 //   'edge'   {plan, family, deepLink, transition}  — confirmed OUT→IN, fire once
 //   'rearm'  {plan, family, durationInStock}        — confirmed IN→OUT
-//   'blind'  {family, reasons, plans}               — ⚠️ watcher may be blind (re-emits while it persists, throttled by blindRenotifySec)
+//   'blind'  {family, reasons, plans, escalate, sinceMs} — ⚠️ watcher may be blind (re-emits while it persists, throttled by blindRenotifySec; escalate=true once it has persisted past blindEscalateSec)
 //   'blind:cleared' {family}                        — recovered
 //   'family' {family, outcome, detection, edges}    — one family poll finished
 //   'cycle'  {ts, families}                          — one full pass finished
@@ -24,6 +24,11 @@ import { resolveCadenceSec } from './config.js';
 const DEFAULT_BLIND_CYCLES = 3;
 const DEFAULT_CONTROL_K = 3;
 const DEFAULT_BLIND_RENOTIFY_SEC = 3600; // re-remind, hourly, while a family stays blind
+const DEFAULT_BLIND_ESCALATE_SEC = 10800; // blind this long → escalate to Telegram (2026-07-03 incident)
+// Other families' OUT labels only count as control evidence while this fresh.
+// Bounds the false-IN window if DMIT redesigns the page (stale counts must not
+// vouch for a layout they never saw).
+const EXTERNAL_CONTROL_MAX_AGE_MS = 5 * 60_000;
 
 function groupPlansByFamily(plans) {
   const map = new Map();
@@ -59,6 +64,7 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
   const controlGroupMinK = settings.controlGroupMinK ?? DEFAULT_CONTROL_K;
   const cooldownMs = (settings.cooldownSec ?? 0) * 1000;
   const blindRenotifyMs = (settings.blindRenotifySec ?? DEFAULT_BLIND_RENOTIFY_SEC) * 1000;
+  const blindEscalateMs = (settings.blindEscalateSec ?? DEFAULT_BLIND_ESCALATE_SEC) * 1000;
 
   const source =
     pageSource ??
@@ -74,7 +80,14 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
   const markerMissStreak = new Map(); // familyKey -> consecutive markers-missing cycles
   const blockedStreak = new Map(); // familyKey -> consecutive CF/login-blocked cycles
   const blindState = new Map(); // familyKey -> bool (currently blind)
+  const blindSince = new Map(); // familyKey -> ts blindness began (drives Telegram escalation)
   const lastBlindEmit = new Map(); // familyKey -> ts of the last 'blind' emit (throttles re-notify)
+  // familyKey -> {count, ts}: OUT labels seen on that family's last trustworthy
+  // read. Summed into classifyFamily's externalOutCount so the control group is
+  // GLOBAL: LAX's sold-out wall proves the reader works even when an entire other
+  // family restocks at once (the 2026-07-03 HKG+TYO mass restock produced 0 local
+  // OUT labels and was suppressed by the old per-family gate).
+  const lastOutLabels = new Map();
   const backoffLevel = new Map(); // familyKey -> int
   const timers = new Map(); // familyKey -> Timeout
   let running = false;
@@ -141,6 +154,17 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
     return out;
   }
 
+  /** Sum of OTHER families' fresh OUT-label counts — the global control group. */
+  function externalOutCountFor(familyKey, ts) {
+    let sum = 0;
+    for (const [key, entry] of lastOutLabels) {
+      if (key === familyKey) continue;
+      if (ts - entry.ts > EXTERNAL_CONTROL_MAX_AGE_MS) continue;
+      sum += entry.count;
+    }
+    return sum;
+  }
+
   function persistEdges(family, plans, detection, edges, ts) {
     for (const e of edges.perPlan) {
       store.setPlanState(e.id, {
@@ -204,6 +228,12 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
     });
     const was = blindState.get(family.key) ?? false;
     if (assessment.blind) {
+      if (!was) blindSince.set(family.key, ts);
+      const sinceMs = blindSince.get(family.key) ?? ts;
+      // A short blind spell is panel noise; one that persists past
+      // blindEscalateSec means "go look manually" and must reach Telegram
+      // (the 2026-07-03 restock sat blind for ~2 days, panel-only).
+      const escalate = ts - sinceMs >= blindEscalateMs;
       // Emit on entry, then re-emit on a throttled interval so a persistent
       // Cloudflare block keeps reminding the operator — but never every cycle.
       const last = lastBlindEmit.get(family.key);
@@ -211,13 +241,21 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
       if (!was || due) {
         blindState.set(family.key, true);
         lastBlindEmit.set(family.key, ts);
-        emitter.emit('blind', { family, reasons: assessment.reasons, plans: assessment.plans });
+        emitter.emit('blind', { family, reasons: assessment.reasons, plans: assessment.plans, escalate, sinceMs });
       }
     } else if (was) {
       blindState.set(family.key, false);
+      blindSince.delete(family.key);
       lastBlindEmit.delete(family.key); // recovery: clear so the next blind re-emits immediately
       emitter.emit('blind:cleared', { family });
     }
+    // Persist every poll so /api/health + the panel always reflect the live
+    // blind state, including across a process restart.
+    store.setFamilyHealth(family.key, {
+      blind: assessment.blind,
+      blindReasons: assessment.blind ? assessment.reasons.join(',') : null,
+      blindSince: assessment.blind ? (blindSince.get(family.key) ?? ts) : null,
+    });
     return assessment;
   }
 
@@ -239,8 +277,24 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
     }
 
     const detection = read.ok
-      ? classifyFamily({ pageText: read.pageText, family, plans, controlGroupMinK })
+      ? classifyFamily({
+          pageText: read.pageText,
+          family,
+          plans,
+          controlGroupMinK,
+          externalOutCount: externalOutCountFor(familyKey, ts),
+        })
       : buildUnreadableDetection(family, plans, read);
+
+    // Record this family's own OUT labels as control evidence for the others.
+    // An untrustworthy read contributes nothing (count 0, and its stale entry
+    // stops vouching once it ages past EXTERNAL_CONTROL_MAX_AGE_MS).
+    lastOutLabels.set(familyKey, {
+      count: detection.markersPresent
+        ? detection.results.filter((r) => r.reason === 'out-of-stock-label').length
+        : 0,
+      ts,
+    });
 
     const storedById = {};
     for (const p of plans) storedById[p.id] = store.getPlan(p.id);
@@ -342,6 +396,6 @@ export function createWatcher({ store, watchlist, pageSource, now = () => Date.n
     start,
     stop,
     // exposed for diagnostics / tests
-    _state: { unknownStreak, markerMissStreak, blockedStreak, blindState, lastBlindEmit, backoffLevel },
+    _state: { unknownStreak, markerMissStreak, blockedStreak, blindState, blindSince, lastBlindEmit, backoffLevel, lastOutLabels },
   };
 }

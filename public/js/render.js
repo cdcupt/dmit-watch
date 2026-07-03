@@ -191,8 +191,10 @@ export function renderHealth(health) {
 
   $('#healthList').innerHTML = (health.families ?? [])
     .map((f) => {
-      const right =
-        f.backoff > 0
+      // Blind outranks backoff: detection is paused, which can hide a restock.
+      const right = f.blind
+        ? `<span class="chip bk"><span class="dot"></span>BLIND${f.blindSinceMs ? ' ' + esc(fmtAgo(Date.now() - f.blindSinceMs).replace(/ ago$/, '')) : ''}${f.blindReasons?.length ? ` · ${esc(f.blindReasons.join(', '))}` : ''}</span>`
+        : f.backoff > 0
           ? `<span class="chip bk"><span class="dot"></span>BACKOFF ×${f.backoff}</span>`
           : `<span class="meta">last poll ${f.lastPollMs ? fmtAgo(Date.now() - f.lastPollMs) : '—'}</span>`;
       return `<div class="row"><div class="lead-l"><span class="skuname">${esc(f.label)}</span><span class="meta">${esc(f.sub)} · ${f.count} plans</span></div>${right}</div>`;
