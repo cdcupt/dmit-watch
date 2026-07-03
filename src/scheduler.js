@@ -7,10 +7,12 @@
 // lifecycle (start/stop). Keeping the wiring here keeps each piece small and lets
 // tests dry-run the loop with a fake watcher + a mocked Telegram send.
 //
-// Telegram policy: alert ONLY on a confirmed OUT→IN restock edge. The blind net
-// is panel-only — it surfaces on the Watcher-health panel (via SSE) but never
-// buzzes the phone. IN→OUT re-arms are likewise state-only (panel history),
-// never a phone buzz (TECH §06).
+// Telegram policy: alert on a confirmed OUT→IN restock edge, and on an ESCALATED
+// blind state (blind for longer than blindEscalateSec — the watcher sets
+// escalate:true on the event). A short blind spell stays panel-only, but a
+// persistent one means stock detection has been dark for hours and the operator
+// must check by hand (the 2026-07-03 HKG+TYO restock sat panel-only for ~2 days).
+// IN→OUT re-arms are state-only (panel history), never a phone buzz (TECH §06).
 
 const NOOP = () => {};
 
@@ -61,9 +63,15 @@ export function createScheduler({
   }
 
   function onBlind(ev) {
-    // Panel-only: surface the blind state on the Watcher-health panel (SSE).
-    // Telegram is restock-only — a blind reader must never buzz the phone (noise).
-    logger?.warn?.(`[scheduler] BLIND ${ev.family?.key}: ${ev.reasons?.join(', ')} (panel-only, no telegram)`);
+    // Fresh blind → panel-only (noise). Escalated blind (persisted past
+    // blindEscalateSec) → Telegram too: hours of paused detection can be hiding
+    // a restock, and only a human can recover it.
+    if (ev.escalate) {
+      logger?.warn?.(`[scheduler] BLIND ${ev.family?.key}: ${ev.reasons?.join(', ')} (persistent — escalating to telegram)`);
+      track(notifier.notifyBlind({ family: ev.family, reasons: ev.reasons, sinceMs: ev.sinceMs }));
+    } else {
+      logger?.warn?.(`[scheduler] BLIND ${ev.family?.key}: ${ev.reasons?.join(', ')} (panel-only, no telegram)`);
+    }
     broadcast('blind', ev);
   }
 

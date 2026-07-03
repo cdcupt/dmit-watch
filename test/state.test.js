@@ -23,18 +23,18 @@ function freshStore() {
 }
 const watchlist = () => loadWatchlist();
 
-test('buildState: 33 plans, fixed datacenter/generation order, all-OUT counts', () => {
+test('buildState: 28 plans, fixed datacenter/generation order, all-OUT counts', () => {
   const store = freshStore();
   const s = buildState({ watchlist: watchlist(), store });
   const flat = s.datacenters.flatMap((dc) => dc.generations.flatMap((g) => g.plans));
-  assert.equal(flat.length, 33);
+  assert.equal(flat.length, 28);
   assert.deepEqual(s.datacenters.map((dc) => dc.loc), ['lax', 'hkg', 'tyo']);
   assert.deepEqual(s.counts, {
-    total: 33,
+    total: 28,
     in: 0,
-    waiting: 33,
-    byLoc: { lax: 16, hkg: 10, tyo: 7 },
-    byGen: { as3: 18, an4: 5, an5: 10 },
+    waiting: 28,
+    byLoc: { lax: 16, hkg: 5, tyo: 7 },
+    byGen: { as3: 18, an4: 5, an5: 5 },
   });
   // every plan starts "out" with a usable deep link
   assert.ok(flat.every((p) => p.status === 'out'));
@@ -48,7 +48,7 @@ test('buildState: a stored IN plan flips status + counts and carries inSinceMs',
   store.setPlanState('lax-an4-medium', { status: 'IN', lastKnown: 'IN', lastChecked: ts, lastChange: ts });
   const s = buildState({ watchlist: watchlist(), store, alarmed: new Set(['lax-an4-medium']) });
   assert.equal(s.counts.in, 1);
-  assert.equal(s.counts.waiting, 32);
+  assert.equal(s.counts.waiting, 27);
   const plan = s.datacenters
     .flatMap((dc) => dc.generations.flatMap((g) => g.plans))
     .find((p) => p.id === 'lax-an4-medium');
@@ -104,7 +104,7 @@ test('buildHealth: 6 families + telegram rows mapped to plan names', () => {
   store.logTelegram({ planId: 'lax-an4-medium', message: 'x', sentOk: true });
   store.logTelegram({ planId: null, message: 'blind', sentOk: false, lastError: 'http 500' });
   const h = buildHealth({ watchlist: watchlist(), store });
-  assert.equal(h.families.length, 6);
+  assert.equal(h.families.length, 5);
   const names = h.telegram.map((t) => t.name);
   assert.ok(names.includes('LAX.AN4.Pro.MEDIUM'));
   assert.ok(names.includes('Watcher blind alert'));
@@ -116,4 +116,25 @@ test('durationText edge cases', () => {
   assert.equal(durationText(0), 'in stock for 0s');
   assert.equal(durationText(59), 'in stock for 59s');
   assert.equal(durationText(125), 'in stock for 2m 5s');
+});
+
+test('buildHealth projects the blind flag, reasons, and onset for the panel', () => {
+  const store = freshStore();
+  store.setFamilyHealth('hkg/as3', {
+    blind: true,
+    blindReasons: 'persistent-unknown,structure-markers-missing',
+    blindSince: 777,
+  });
+  const h = buildHealth({ watchlist: watchlist(), store });
+
+  const hk = h.families.find((f) => f.key === 'hkg/as3');
+  assert.equal(hk.blind, true);
+  assert.deepEqual(hk.blindReasons, ['persistent-unknown', 'structure-markers-missing']);
+  assert.equal(hk.blindSinceMs, 777);
+
+  const lax = h.families.find((f) => f.key === 'lax/as3');
+  assert.equal(lax.blind, false);
+  assert.deepEqual(lax.blindReasons, []);
+  assert.equal(lax.blindSinceMs, null);
+  store.close();
 });

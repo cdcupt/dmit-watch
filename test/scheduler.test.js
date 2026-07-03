@@ -1,7 +1,8 @@
 // Scheduler wiring tests — a fake watcher (EventEmitter) + a mock notifier.
-// Proves edge→telegram, blind is panel-only (broadcast yes, telegram NO — even on
-// the throttled re-notify), rearm is state-only (no telegram), the panel broadcast
-// hook fires for every event, and start/stop wire + unwire.
+// Proves edge→telegram, fresh blind is panel-only (broadcast yes, telegram NO)
+// while ESCALATED blind (persisted past blindEscalateSec) reaches telegram,
+// rearm is state-only (no telegram), the panel broadcast hook fires for every
+// event, and start/stop wire + unwire.
 //   npm test
 
 import { test } from 'node:test';
@@ -61,7 +62,7 @@ test('an OUT→IN edge routes to telegram and to the panel broadcast', async () 
   assert.ok(events.some(([e]) => e === 'edge'));
 });
 
-test('blind (entry + throttled re-notify) is panel-only: broadcast yes, telegram NO', async () => {
+test('fresh blind (entry + throttled re-notify) is panel-only: broadcast yes, telegram NO', async () => {
   const watcher = fakeWatcher();
   const notifier = mockNotifier();
   const events = [];
@@ -71,12 +72,12 @@ test('blind (entry + throttled re-notify) is panel-only: broadcast yes, telegram
   sched.start();
 
   // entry, then a throttled re-notify (the watcher re-emits 'blind' while it persists), then recovery
-  watcher.emit('blind', { family: FAMILY, reasons: ['persistent-block'] });
-  watcher.emit('blind', { family: FAMILY, reasons: ['persistent-block'] });
+  watcher.emit('blind', { family: FAMILY, reasons: ['persistent-block'], escalate: false, sinceMs: 1000 });
+  watcher.emit('blind', { family: FAMILY, reasons: ['persistent-block'], escalate: false, sinceMs: 1000 });
   watcher.emit('blind:cleared', { family: FAMILY });
   await sched.whenIdle();
 
-  // Telegram is restock-only now — NO blind buzz, not even on the re-notify.
+  // A FRESH blind never buzzes the phone — panel noise until it persists.
   assert.equal(notifier.blinds.length, 0);
   assert.equal(notifier.edges.length, 0);
 
@@ -86,6 +87,26 @@ test('blind (entry + throttled re-notify) is panel-only: broadcast yes, telegram
   assert.equal(blindBroadcasts.length, 2);
   assert.equal(blindBroadcasts[0][1].family.key, 'lax/an5');
   assert.ok(events.some(([e]) => e === 'blind:cleared'));
+});
+
+test('ESCALATED blind (persisted past blindEscalateSec) reaches telegram with the duration', async () => {
+  const watcher = fakeWatcher();
+  const notifier = mockNotifier();
+  const events = [];
+  const sched = createScheduler({
+    watcher, notifier, broadcast: (e, p) => events.push([e, p]), logger: silent,
+  });
+  sched.start();
+
+  watcher.emit('blind', { family: FAMILY, reasons: ['persistent-unknown'], escalate: true, sinceMs: 12345 });
+  await sched.whenIdle();
+
+  assert.equal(notifier.blinds.length, 1);
+  assert.equal(notifier.blinds[0].family.key, 'lax/an5');
+  assert.deepEqual(notifier.blinds[0].reasons, ['persistent-unknown']);
+  assert.equal(notifier.blinds[0].sinceMs, 12345);
+  // The panel broadcast still fires alongside the telegram escalation.
+  assert.equal(events.filter(([e]) => e === 'blind').length, 1);
 });
 
 test('a re-arm (IN→OUT) is state-only: broadcast yes, telegram no', async () => {

@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS family_health (
   last_poll_ts  INTEGER,
   backoff_level INTEGER NOT NULL DEFAULT 0,
   last_outcome  TEXT,                         -- ok | 403 | err
-  chrome_state  TEXT
+  chrome_state  TEXT,
+  blind         INTEGER NOT NULL DEFAULT 0,   -- watcher-blind flag (panel + /api/health)
+  blind_reasons TEXT,                         -- comma-joined, e.g. "persistent-unknown"
+  blind_since   INTEGER                       -- epoch ms blindness began
 );
 
 CREATE TABLE IF NOT EXISTS plans (

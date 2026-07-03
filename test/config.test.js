@@ -107,10 +107,13 @@ test('a valid watchlist loads and round-trips through writeWatchlist', () => {
   }
 });
 
-test('the real config/watchlist.json is valid (33 plans, 6 families)', () => {
+test('the real config/watchlist.json is valid (28 plans, 5 families — hkg/an5 retired)', () => {
   const wl = loadWatchlist();
-  assert.equal(wl.plans.length, 33);
-  assert.equal(wl.families.length, 6);
+  assert.equal(wl.plans.length, 28);
+  assert.equal(wl.families.length, 5);
+  // DMIT's hkg/an5 cart URL serves AS3 content since ~2026-06-28 (generation
+  // withdrawn) — watching it is permanent blind noise.
+  assert.equal(wl.families.find((f) => f.key === 'hkg/an5'), undefined);
 });
 
 test('cooldown is short enough not to swallow a genuine brief restock', () => {
@@ -119,6 +122,8 @@ test('cooldown is short enough not to swallow a genuine brief restock', () => {
   const wl = loadWatchlist();
   assert.equal(wl.settings.cooldownSec, 90);
   assert.equal(wl.settings.blindRenotifySec, 3600);
+  // Blind past this long escalates to Telegram (2026-07-03 missed-restock fix).
+  assert.equal(wl.settings.blindEscalateSec, 10800);
 });
 
 test('loadSecrets reads the env override and enforces required creds', () => {

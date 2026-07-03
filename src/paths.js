@@ -15,7 +15,7 @@ const SRC_DIR = dirname(fileURLToPath(import.meta.url));
 /** Repo root (one level up from src/). */
 export const REPO_ROOT = join(SRC_DIR, '..');
 
-/** Git-tracked watchlist (33 plans + cadence). Never holds secrets. */
+/** Git-tracked watchlist (28 plans + cadence). Never holds secrets. */
 export const WATCHLIST_FILE =
   process.env.DMIT_WATCH_WATCHLIST || join(REPO_ROOT, 'config', 'watchlist.json');
 

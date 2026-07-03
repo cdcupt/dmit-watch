@@ -46,20 +46,30 @@ export function buildEdgeMessage({ plan, family, deepLink, now = Date.now() }) {
   ].join('\n');
 }
 
+/** Human "for Xh Ym" from a blind-since timestamp (null → empty string). */
+function blindForText(sinceMs, now) {
+  if (sinceMs == null) return '';
+  const mins = Math.max(0, Math.round((now - sinceMs) / 60_000));
+  const h = Math.floor(mins / 60);
+  return h > 0 ? ` for ${h}h ${mins % 60}m` : ` for ${mins}m`;
+}
+
 /**
  * Build the blind-watcher / session-attention alert text (pure). This is the
  * ONLY alert that fires without a confirmed IN — a broken reader must never
- * silently hide a restock (TECH §04 safety net, §02 re-clear path).
- * @param {{ family:object, reasons?:string[], now?:number }} arg
+ * silently hide a restock (TECH §04 safety net, §02 re-clear path). Sent only
+ * once blindness has persisted past blindEscalateSec, so it always means
+ * "check the cart page by hand NOW — a restock may be hiding behind this".
+ * @param {{ family:object, reasons?:string[], sinceMs?:number|null, now?:number }} arg
  */
-export function buildBlindMessage({ family, reasons = [], now = Date.now() }) {
+export function buildBlindMessage({ family, reasons = [], sinceMs = null, now = Date.now() }) {
   const label = family?.label ?? family?.key ?? 'a watch group';
   const needsReclear = reasons.some((r) => r === 'persistent-block' || r === 'login-wall');
   const hint = needsReclear
     ? 'Bring the dedicated Chrome to the front to re-clear Cloudflare / re-login.'
-    : 'The cart page stopped parsing cleanly — check the dedicated Chrome session.';
+    : 'The cart page stopped parsing cleanly — check the dedicated Chrome session AND the cart page by hand (a mass restock can look exactly like this).';
   return [
-    `⚠️ Watcher may be blind — ${label}`,
+    `⚠️ Watcher blind${blindForText(sinceMs, now)} — ${label}`,
     `Reasons: ${reasons.length ? reasons.join(', ') : 'unknown'}`,
     `${hint} Stock detection is paused for this group until it recovers (no in-stock alert can fire while blind).`,
     `checked ${clockHMS(now)}`,
@@ -171,9 +181,9 @@ export function createTelegramNotifier({
     return send(text, { planId: plan?.id ?? null, deepLink, kind: 'edge' });
   }
 
-  /** Alert the blind-watcher / session-attention condition ({family, reasons}). */
-  function notifyBlind({ family, reasons }) {
-    const text = buildBlindMessage({ family, reasons, now: now() });
+  /** Alert the blind-watcher / session-attention condition ({family, reasons, sinceMs}). */
+  function notifyBlind({ family, reasons, sinceMs = null }) {
+    const text = buildBlindMessage({ family, reasons, sinceMs, now: now() });
     return send(text, { planId: null, deepLink: null, kind: 'blind' });
   }
 

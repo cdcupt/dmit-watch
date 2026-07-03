@@ -51,10 +51,10 @@ const apiState = async () => {
 const flat = (s) => s.datacenters.flatMap((dc) => dc.generations.flatMap((g) => g.plans));
 const planFromApi = (s, id) => flat(s).find((p) => p.id === id);
 
-test('all-OUT poll → /api/state shows 33 plans, every one waiting/out', async () => {
+test('all-OUT poll → /api/state shows 28 plans, every one waiting/out', async () => {
   await watcher.pollFamily(FAM);
   const s = await apiState();
-  assert.equal(flat(s).length, 33);
+  assert.equal(flat(s).length, 28);
   assert.equal(s.counts.in, 0);
   assert.equal(planFromApi(s, 'lax-an5-mini').status, 'out');
 });

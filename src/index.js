@@ -39,7 +39,9 @@ async function main() {
   // 2) Store: open + reconcile plans from the watchlist (idempotent, no migration).
   const store = openStore();
   const seeded = store.seedFromWatchlist(watchlist);
-  console.log(`[index] db ${DB_FILE} — ${seeded.plansInserted} inserted, ${seeded.plansUpdated} updated`);
+  console.log(
+    `[index] db ${DB_FILE} — ${seeded.plansInserted} inserted, ${seeded.plansUpdated} updated, ${seeded.plansRemoved} removed (+${seeded.familiesRemoved} retired families)`,
+  );
 
   // 3) Watcher (default page source = CDP attach to the dedicated Chrome).
   const watcher = createWatcher({ store, watchlist });

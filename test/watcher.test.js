@@ -228,3 +228,189 @@ test('blind re-notify resets on recovery: the next blind re-emits immediately', 
   }
   assert.deepEqual(events, ['blind', 'cleared', 'blind']);
 });
+
+// ---- global control group + blind escalation (2026-07-03 mass-restock fix) --
+
+/** Minimal trustworthy cart render for any family (markers + names + prices). */
+function familyPage(family, plans, { inStock = new Set() } = {}) {
+  const lines = [`Configure Your Premium Network — ${family.genLabel} Instance Scale`];
+  for (const p of plans) {
+    lines.push(p.name);
+    if (!inStock.has(p.id)) lines.push('Out of Stock');
+    lines.push(`${p.price} USD / Monthly`);
+  }
+  lines.push('TOTAL DUE TODAY $0.00');
+  return lines.join('\n');
+}
+
+function familyFixtures(wl, key, opts) {
+  const family = wl.families.find((f) => f.key === key);
+  const plans = wl.plans.filter((p) => p.family === key);
+  return familyPage(family, plans, opts);
+}
+
+test('mass restock: another family\'s sold-out wall is the control — every plan fires', async () => {
+  const wl = loadWatchlist();
+  const hkIds = new Set(wl.plans.filter((p) => p.family === 'hkg/as3').map((p) => p.id));
+  const { store, watcher } = setup({
+    'lax/as3': familyFixtures(wl, 'lax/as3'), // all 6 OUT — the control wall
+    'hkg/as3': familyFixtures(wl, 'hkg/as3', { inStock: hkIds }), // full restock
+  });
+  const edges = [];
+  watcher.on('edge', (e) => edges.push(e));
+
+  // Restocked family polled FIRST: no control evidence yet → UNKNOWN, no false fire.
+  const s0 = await watcher.pollFamily('hkg/as3');
+  assert.deepEqual(s0.fired, []);
+  assert.ok(Object.values(s0.statuses).every((st) => st === 'UNKNOWN'));
+
+  // The LAX sold-out wall proves the reader parses the current layout…
+  await watcher.pollFamily('lax/as3');
+
+  // …so the next HKG poll promotes all 5 cards to IN and fires every edge.
+  const s1 = await watcher.pollFamily('hkg/as3');
+  assert.equal(s1.fired.length, 5);
+  assert.equal(edges.length, 5);
+  assert.equal(store.getPlan('hkg-as3-tiny').status, 'IN');
+  assert.equal(store.getPlan('hkg-as3-tiny').last_known, 'IN');
+  assert.equal(store.transitionsForPlan('hkg-as3-tiny').length, 1);
+});
+
+test('stale external control (older than 5 min) stops vouching — no false IN', async () => {
+  const wl = loadWatchlist();
+  const hkIds = new Set(wl.plans.filter((p) => p.family === 'hkg/as3').map((p) => p.id));
+  let t = 1_000_000_000;
+  const store = openStore(':memory:');
+  store.seedFromWatchlist(wl);
+  const watcher = createWatcher({
+    store,
+    watchlist: wl,
+    now: () => t,
+    pageSource: makeFixtureSource({
+      'lax/as3': familyFixtures(wl, 'lax/as3'),
+      'hkg/as3': familyFixtures(wl, 'hkg/as3', { inStock: hkIds }),
+    }),
+  });
+
+  await watcher.pollFamily('lax/as3'); // control recorded at t
+  t += 6 * 60_000; // …but 6 minutes pass before the HKG read
+  const s = await watcher.pollFamily('hkg/as3');
+  assert.deepEqual(s.fired, []);
+  assert.ok(Object.values(s.statuses).every((st) => st === 'UNKNOWN'));
+});
+
+test('blind escalation: persistent blind flips escalate:true and persists for the panel', async () => {
+  const wl = loadWatchlist();
+  let t = 1_000_000_000;
+  let page = readFixture('garbled.txt'); // markers missing → UNKNOWN streaks
+  const store = openStore(':memory:');
+  store.seedFromWatchlist(wl);
+  const watcher = createWatcher({
+    store,
+    watchlist: wl,
+    now: () => t,
+    pageSource: makeFixtureSource({ 'hkg/as3': () => ({ ok: true, status: 200, pageText: page }) }),
+  });
+  const blinds = [];
+  const cleared = [];
+  watcher.on('blind', (b) => blinds.push(b));
+  watcher.on('blind:cleared', (b) => cleared.push(b));
+
+  await watcher.pollFamily('hkg/as3');
+  t += 60_000;
+  await watcher.pollFamily('hkg/as3');
+  t += 60_000;
+  await watcher.pollFamily('hkg/as3'); // 3rd bad cycle → blind entry
+  assert.equal(blinds.length, 1);
+  assert.equal(blinds[0].escalate, false, 'fresh blind must stay panel-only');
+  const since = blinds[0].sinceMs;
+
+  // Persisted for /api/health + the panel.
+  let h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 1);
+  assert.match(h.blind_reasons, /persistent-unknown/);
+  assert.equal(h.blind_since, since);
+
+  // 4 hours later (past blindEscalateSec=3h AND the 1h re-notify throttle):
+  t += 4 * 3_600_000;
+  await watcher.pollFamily('hkg/as3');
+  assert.equal(blinds.length, 2);
+  assert.equal(blinds[1].escalate, true, 'persistent blind must escalate');
+  assert.equal(blinds[1].sinceMs, since, 'escalation keeps the original onset');
+
+  // Recovery: a trustworthy all-OUT render clears blind everywhere.
+  page = familyFixtures(wl, 'hkg/as3');
+  t += 60_000;
+  await watcher.pollFamily('hkg/as3');
+  assert.equal(cleared.length, 1);
+  h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 0);
+  assert.equal(h.blind_reasons, null);
+  assert.equal(h.blind_since, null);
+});
+
+test('restart hydration: a pre-restart blind onset survives and escalates immediately', async () => {
+  const wl = loadWatchlist();
+  const HOUR = 3_600_000;
+  let t = 1_000_000_000;
+  const store = openStore(':memory:');
+  store.seedFromWatchlist(wl);
+  // The previous process saw hkg/as3 go blind 4h ago (past blindEscalateSec=3h).
+  const oldOnset = t - 4 * HOUR;
+  store.setFamilyHealth('hkg/as3', { blind: true, blindReasons: 'persistent-unknown', blindSince: oldOnset });
+
+  const watcher = createWatcher({
+    store,
+    watchlist: wl,
+    now: () => t,
+    pageSource: makeFixtureSource({ 'hkg/as3': () => ({ ok: true, status: 200, pageText: readFixture('garbled.txt') }) }),
+  });
+  const blinds = [];
+  watcher.on('blind', (b) => blinds.push(b));
+
+  // Re-confirmation grace: the persisted row must survive the first cycles.
+  await watcher.pollFamily('hkg/as3');
+  t += 60_000;
+  await watcher.pollFamily('hkg/as3');
+  let h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 1, 'grace period must not wipe the persisted blind row');
+  assert.equal(h.blind_since, oldOnset);
+  assert.equal(blinds.length, 0);
+
+  t += 60_000;
+  await watcher.pollFamily('hkg/as3'); // 3rd bad cycle → re-confirmed
+  assert.equal(blinds.length, 1);
+  assert.equal(blinds[0].sinceMs, oldOnset, 'onset must carry across the restart');
+  assert.equal(blinds[0].escalate, true, 'already past blindEscalateSec → escalate now, not in another 3h');
+  h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind_since, oldOnset);
+});
+
+test('restart hydration: a family that recovered while the process was down clears cleanly', async () => {
+  const wl = loadWatchlist();
+  let t = 1_000_000_000;
+  const store = openStore(':memory:');
+  store.seedFromWatchlist(wl);
+  store.setFamilyHealth('hkg/as3', { blind: true, blindReasons: 'persistent-unknown', blindSince: t - 7_200_000 });
+
+  const watcher = createWatcher({
+    store,
+    watchlist: wl,
+    now: () => t,
+    pageSource: makeFixtureSource({ 'hkg/as3': familyFixtures(wl, 'hkg/as3') }), // healthy all-OUT render
+  });
+  const blinds = [];
+  const cleared = [];
+  watcher.on('blind', (b) => blinds.push(b));
+  watcher.on('blind:cleared', (b) => cleared.push(b));
+
+  for (let i = 0; i < 3; i += 1) {
+    await watcher.pollFamily('hkg/as3');
+    t += 60_000;
+  }
+  assert.equal(blinds.length, 0);
+  assert.equal(cleared.length, 1, 'recovery-during-downtime clears once re-confirmed');
+  const h = store.getFamilyHealth('hkg/as3');
+  assert.equal(h.blind, 0);
+  assert.equal(h.blind_since, null);
+});

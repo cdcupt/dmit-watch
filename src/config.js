@@ -18,7 +18,7 @@ const CADENCE_JITTER_FRACTION = 0.1; // ±10% so the beat is never perfectly reg
 const CADENCE_ENV = 'DMIT_WATCH_CADENCE_SEC';
 
 /**
- * Load + validate config/watchlist.json (settings, families, 33 plans).
+ * Load + validate config/watchlist.json (settings, families, 28 plans).
  * Never reads secrets. Throws with an actionable message on any structural fault.
  */
 export function loadWatchlist(file = WATCHLIST_FILE) {

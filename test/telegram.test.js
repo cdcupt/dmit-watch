@@ -63,12 +63,29 @@ test('buildEdgeMessage matches the TECH §06 four-line format', () => {
 
 test('buildBlindMessage is the distinct blind alert and is re-clear aware', () => {
   const blocked = buildBlindMessage({ family: FAMILY, reasons: ['persistent-block'], now: 0 });
-  assert.match(blocked, /^⚠️ Watcher may be blind — LAX·AN4/);
+  assert.match(blocked, /^⚠️ Watcher blind — LAX·AN4/);
   assert.match(blocked, /Reasons: persistent-block/);
   assert.match(blocked, /re-clear Cloudflare/);
 
   const parseFail = buildBlindMessage({ family: FAMILY, reasons: ['structure-markers-missing'], now: 0 });
   assert.match(parseFail, /stopped parsing cleanly/);
+  // The parse-fail path must tell the operator a restock can hide behind it
+  // (the 2026-07-03 lesson).
+  assert.match(parseFail, /mass restock/);
+});
+
+test('buildBlindMessage carries the blind duration when sinceMs is known', () => {
+  const HOUR = 3_600_000;
+  const msg = buildBlindMessage({
+    family: FAMILY,
+    reasons: ['persistent-unknown'],
+    sinceMs: 0,
+    now: 2 * HOUR + 30 * 60_000,
+  });
+  assert.match(msg, /^⚠️ Watcher blind for 2h 30m — LAX·AN4/);
+
+  const short = buildBlindMessage({ family: FAMILY, reasons: ['persistent-unknown'], sinceMs: 0, now: 5 * 60_000 });
+  assert.match(short, /blind for 5m —/);
 });
 
 test('notifyEdge sends once, returns ok, logs a sent telegram_log row', async () => {
