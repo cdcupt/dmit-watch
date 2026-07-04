@@ -112,6 +112,57 @@ test('buildHealth: 7 families + telegram rows mapped to plan names', () => {
   store.close();
 });
 
+test('buildState: outSinceMs mirrors inSinceMs — set on OUT after a transition (ST-U1)', () => {
+  const store = freshStore();
+  const tIn = Date.now() - 60_000;
+  const tOut = Date.now();
+  // IN → OUT: last_change now marks when the plan sold out.
+  store.setPlanState('lax-an4-medium', { status: 'IN', lastKnown: 'IN', lastChecked: tIn, lastChange: tIn });
+  store.setPlanState('lax-an4-medium', { status: 'OUT', lastKnown: 'OUT', lastChecked: tOut, lastChange: tOut });
+  const s = buildState({ watchlist: watchlist(), store });
+  const plan = s.datacenters
+    .flatMap((dc) => dc.generations.flatMap((g) => g.plans))
+    .find((p) => p.id === 'lax-an4-medium');
+  assert.equal(plan.status, 'out');
+  assert.equal(plan.outSinceMs, tOut);
+  assert.equal(plan.inSinceMs, null);
+  store.close();
+});
+
+test('buildState: seeded-OUT plans that never transitioned have outSinceMs null (ST-U2)', () => {
+  const store = freshStore();
+  const s = buildState({ watchlist: watchlist(), store });
+  const flat = s.datacenters.flatMap((dc) => dc.generations.flatMap((g) => g.plans));
+  // Render-if-present contract: the board shows no since-line for these.
+  assert.ok(flat.every((p) => p.outSinceMs === null));
+  store.close();
+});
+
+test('buildState: IN plan symmetry — inSinceMs set, outSinceMs null (ST-U3)', () => {
+  const store = freshStore();
+  const ts = Date.now();
+  store.setPlanState('tyo-as3-tiny', { status: 'IN', lastKnown: 'IN', lastChecked: ts, lastChange: ts });
+  const s = buildState({ watchlist: watchlist(), store });
+  const plan = s.datacenters
+    .flatMap((dc) => dc.generations.flatMap((g) => g.plans))
+    .find((p) => p.id === 'tyo-as3-tiny');
+  assert.equal(plan.inSinceMs, ts);
+  assert.equal(plan.outSinceMs, null);
+  store.close();
+});
+
+test('buildState: family provider surfaces on each generation, defaulting to dmit (ST-U4)', () => {
+  const store = freshStore();
+  const s = buildState({ watchlist: watchlist(), store });
+  const gens = s.datacenters.flatMap((dc) => dc.generations);
+  const vds = gens.find((g) => g.key === 'hnl/vds');
+  assert.equal(vds.provider, 'whmcs'); // qq.pw Hawaii VDS — data-driven DC badge
+  const dmit = gens.find((g) => g.key === 'lax/an4');
+  assert.equal(dmit.provider, 'dmit'); // families without the field resolve to the default
+  assert.ok(gens.every((g) => typeof g.provider === 'string' && g.provider.length > 0));
+  store.close();
+});
+
 test('durationText edge cases', () => {
   assert.equal(durationText(null), null);
   assert.equal(durationText(0), 'in stock for 0s');

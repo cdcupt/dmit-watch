@@ -217,27 +217,73 @@ function parseEnvFile(text) {
 
 /**
  * Load Telegram secrets from ~/.dmit-watch/config (KEY=VALUE).
- * process.env overrides file values. Secret VALUES are never logged.
- * @param {{ required?: boolean }} opts when required (default), throws if either secret is absent.
- * @returns {{ botToken: string|undefined, chatId: string|undefined }}
+ * env overrides file values. Secret VALUES are never logged.
+ * Telegram is OPTIONAL in the full-remote deployment: with required:false an
+ * absent/incomplete cred pair returns null (index.js wires a no-op notifier)
+ * instead of the boot throw the default keeps for existing callers.
+ * @param {{ required?: boolean, env?: object, file?: string }} opts
+ * @returns {{ botToken: string, chatId: string } | null} null only when required:false and creds are absent
  */
-export function loadSecrets({ required = true } = {}) {
+export function loadSecrets({ required = true, env = process.env, file = SECRETS_FILE } = {}) {
   let fileVals = {};
-  if (existsSync(SECRETS_FILE)) {
-    fileVals = parseEnvFile(readFileSync(SECRETS_FILE, 'utf8'));
+  if (existsSync(file)) {
+    fileVals = parseEnvFile(readFileSync(file, 'utf8'));
   }
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || fileVals.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID || fileVals.TELEGRAM_CHAT_ID;
+  const botToken = env?.TELEGRAM_BOT_TOKEN || fileVals.TELEGRAM_BOT_TOKEN;
+  const chatId = env?.TELEGRAM_CHAT_ID || fileVals.TELEGRAM_CHAT_ID;
 
-  if (required) {
-    const missing = [];
-    if (!botToken) missing.push('TELEGRAM_BOT_TOKEN');
-    if (!chatId) missing.push('TELEGRAM_CHAT_ID');
-    if (missing.length) {
+  if (!botToken || !chatId) {
+    if (required) {
+      const missing = [];
+      if (!botToken) missing.push('TELEGRAM_BOT_TOKEN');
+      if (!chatId) missing.push('TELEGRAM_CHAT_ID');
       throw new Error(
-        `missing secret(s) ${missing.join(', ')} — set them in ${SECRETS_FILE} (chmod 600) or the environment`,
+        `missing secret(s) ${missing.join(', ')} — set them in ${file} (chmod 600) or the environment`,
       );
     }
+    return null; // optional mode: Telegram off — never a boot throw
   }
   return { botToken, chatId };
+}
+
+// ---- public-board push (optional) ------------------------------------------
+// Two keys in the SAME secrets file (env wins over file, like loadSecrets):
+// the board server's push endpoint + its bearer token. OFF by default — the
+// feature only turns on when BOTH are present and the url parses as http(s).
+const PUSH_URL_KEY = 'DMIT_WATCH_PUSH_URL';
+const PUSH_TOKEN_KEY = 'DMIT_WATCH_PUSH_TOKEN';
+
+/**
+ * Load the optional public-board push config beside loadSecrets().
+ * A half-configured or malformed state warns (values never logged) and stays
+ * OFF — misconfig must be visible, but can never crash the watcher.
+ * @param {{ env?: object, file?: string, logger?: object }} [opts]
+ * @returns {{ url: string, token: string } | null} null = feature off
+ */
+export function loadPushConfig({ env = process.env, file = SECRETS_FILE, logger = console } = {}) {
+  const warn = (msg) => logger?.warn?.(`[config] ${msg}`);
+  let fileVals = {};
+  if (existsSync(file)) {
+    fileVals = parseEnvFile(readFileSync(file, 'utf8'));
+  }
+  const url = env?.[PUSH_URL_KEY] || fileVals[PUSH_URL_KEY];
+  const token = env?.[PUSH_TOKEN_KEY] || fileVals[PUSH_TOKEN_KEY];
+
+  if (!url && !token) return null; // not configured — the public-repo default
+  if (!url || !token) {
+    warn(`push disabled — ${url ? PUSH_TOKEN_KEY : PUSH_URL_KEY} is missing while its counterpart is set`);
+    return null;
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    warn(`push disabled — ${PUSH_URL_KEY} does not parse as a URL`);
+    return null;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    warn(`push disabled — ${PUSH_URL_KEY} must be http(s), got "${parsed.protocol}"`);
+    return null;
+  }
+  return { url, token };
 }

@@ -40,6 +40,10 @@ function planView(plan, row, family, settings, alarmed) {
     status,
     lastCheckMs: row?.last_checked ?? null,
     inSinceMs: status === 'in' ? (row?.last_change ?? null) : null,
+    // Mirrors inSinceMs for the public board's "out of stock · 3d 4h" line.
+    // Seeded-OUT plans that never transitioned have last_change null → null
+    // (render-if-present: the board shows nothing).
+    outSinceMs: status === 'out' ? (row?.last_change ?? null) : null,
     alarm: alarmed?.has?.(plan.id) === true && status === 'in',
     deepLink: plan.deepLink || familyUrl(settings, family),
   };
@@ -113,6 +117,9 @@ export function buildState({ watchlist, store, alarmed = new Set(), now = Date.n
       gen: fam.gen,
       label: fam.genLabel ?? String(fam.gen).toUpperCase(),
       cpu: fam.cpu ?? '',
+      // Family provider surfaced per generation so the public board's DC badge
+      // is data-driven (whmcs → "qq.pw · WHMCS", default dmit → "DMIT · Premium").
+      provider: fam.provider ?? 'dmit',
       plans: famPlans,
     });
   }
