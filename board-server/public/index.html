@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>VPS Stock Watch — live availability across watched providers</title>
+<meta name="description" content="Live availability across watched VPS providers — a read-only stock board, updated about every minute by an independent watcher." />
+<link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='13'&gt;👁️&lt;/text&gt;&lt;/svg&gt;" />
+<link rel="stylesheet" href="board.css" />
+</head>
+<body>
+  <div class="shell">
+
+    <!-- sticky zone: header + stale banner pin together; the board dims beneath -->
+    <div class="sticky-zone">
+      <header class="app">
+        <div class="brandblock">
+          <h1 class="t">VPS&nbsp;·&nbsp;Stock&nbsp;Watch</h1>
+          <p class="s">Live availability across watched VPS providers · read-only board</p>
+        </div>
+        <!-- ticking label is aria-hidden; the sr-only sibling announces tier TRANSITIONS only -->
+        <span class="lamp fresh-pill" id="freshPill" aria-hidden="true"><span class="dot"></span><span id="freshLabel">updated —</span></span>
+        <span class="sr-only" role="status" aria-live="polite" id="freshStatus"></span>
+      </header>
+      <div id="staleBanner" role="status" aria-live="polite">
+        <div class="stale-inner"><span class="ico" aria-hidden="true">⚠</span><span>Data may be stale — watcher offline · last update <b id="staleAge">—</b></span></div>
+      </div>
+    </div>
+
+    <main>
+      <noscript><div class="empty">This board needs JavaScript to fetch and render the live snapshot.</div></noscript>
+
+      <!-- warming up (fresh deploy, no push yet) — shown in place of the board -->
+      <div class="empty" id="warming" hidden>The board is warming up — waiting for the first snapshot from the watcher.</div>
+
+      <div id="board">
+        <div class="stats" aria-label="Stock summary">
+          <span class="stat-hero in0" id="stInWrap"><b id="stIn">—</b> in stock</span>
+          <span class="stat-sub"><b id="stWait">—</b> waiting</span>
+          <span class="stat-sub dim"><b id="stTotal">—</b> watched</span>
+          <span class="dim" id="breakdown"></span>
+        </div>
+
+        <nav class="jump" aria-label="Jump to datacenter" id="jumpNav"></nav>
+
+        <div class="prem-note"><span class="ico" aria-hidden="true">ⓘ</span><span>
+          An independent watcher reads each provider's store every ~60&nbsp;s from a real browser session and publishes a snapshot here.
+          The pill above tells you exactly how old the data is. Buy links go straight to the provider's cart.</span></div>
+
+        <section class="section instock" aria-labelledby="inTitle">
+          <div class="sec-head"><span class="sec-title" id="inTitle" style="color:var(--ok-ink)">✅ In stock now</span>
+            <span class="sec-badge" id="inBadge">—</span></div>
+          <div class="grid grid-in" id="instockGrid"></div>
+          <div class="empty" id="instockEmpty" style="display:none">Nothing in stock right now — the board refreshes about every minute.</div>
+        </section>
+
+        <section class="section waiting" aria-labelledby="waitTitle">
+          <div class="sec-head"><span class="sec-title" id="waitTitle" style="color:var(--ink-soft)">⏳ Waiting for restock</span>
+            <span class="sec-badge" id="waitBadge">—</span></div>
+          <div id="waitingGroups"></div>
+          <div class="empty" id="waitingEmpty" style="display:none">All watched plans are in stock right now.</div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <p><b>How this works.</b> A watcher polls the providers' order pages every ~60&nbsp;s and pushes a snapshot to this page.
+        Status can lag by a minute or two — the “updated” pill is the honest age of what you see.</p>
+      <p>Prices are the providers' list prices. “Buy now” opens the provider's cart in a new tab; availability at checkout is up to the provider.</p>
+      <p class="tiny">Not affiliated with any listed provider · open source: <a href="https://github.com/cdcupt/dmit-watch">github.com/cdcupt/dmit-watch</a></p>
+    </footer>
+
+  </div>
+
+  <script type="module" src="js/board.js"></script>
+</body>
+</html>
