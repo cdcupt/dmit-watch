@@ -1,19 +1,19 @@
 {
   "_meta": {
-    "source": "docs/pipeline/recon-premium.md (v3, CONFIRMED 2026-06-27); hkg/an5 retired 2026-07-03 (DMIT withdrew the generation — its cart URL serves AS3 content)",
-    "note": "28 Premium plans watched. HKG.AS3 + 5/7 of TYO.AS3 were IN STOCK at the 2026-07-03 revision; stock is read live. 2026-07-03: qq.pw Hawaii residential VDS (provider whmcs, plain-HTTP) added — 32 plans / 6 families total.",
+    "source": "docs/pipeline/recon-premium.md (v3, CONFIRMED 2026-06-27); hkg/an5 re-added 2026-07-04 (DMIT re-enabled the generation; its an5 cart URL now serves distinct AN5 plans, site-verified — supersedes the 2026-07-03 retirement)",
+    "note": "33 Premium plans watched. HKG.AS3 + 5/7 of TYO.AS3 were IN STOCK at the 2026-07-03 revision; stock is read live. 2026-07-03: qq.pw Hawaii residential VDS (provider whmcs, plain-HTTP) added. 2026-07-04: HKG.AN5 (5 plans) re-added — 37 plans / 7 families total.",
     "counts": {
-      "total": 32,
+      "total": 37,
       "byLocation": {
         "LAX": 16,
-        "HKG": 5,
+        "HKG": 10,
         "TYO": 7,
         "HNL": 4
       },
       "byGeneration": {
         "AS3": 18,
         "AN4": 5,
-        "AN5": 5,
+        "AN5": 10,
         "VDS": 4
       }
     },
@@ -98,6 +98,21 @@
       "cpu": "EPYC 7003",
       "planCount": 5,
       "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
+    },
+    {
+      "key": "hkg/an5",
+      "loc": "hkg",
+      "gen": "an5",
+      "label": "HKG·AN5",
+      "locCode": "HKG",
+      "city": "Hong Kong",
+      "country": "China",
+      "flag": "🇭🇰",
+      "regionSlug": "hong-kong",
+      "genLabel": "AN5",
+      "cpu": "EPYC 9005",
+      "planCount": 5,
+      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
     },
     {
       "key": "tyo/as3",
@@ -362,6 +377,61 @@
       "price": "$239.90",
       "popular": false,
       "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
+    },
+    {
+      "id": "hkg-an5-mini",
+      "family": "hkg/an5",
+      "loc": "hkg",
+      "gen": "an5",
+      "size": "MINI",
+      "name": "HKG.AN5.Pro.MINI",
+      "price": "$149.90",
+      "popular": true,
+      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+    },
+    {
+      "id": "hkg-an5-micro",
+      "family": "hkg/an5",
+      "loc": "hkg",
+      "gen": "an5",
+      "size": "MICRO",
+      "name": "HKG.AN5.Pro.MICRO",
+      "price": "$199.90",
+      "popular": false,
+      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+    },
+    {
+      "id": "hkg-an5-medium",
+      "family": "hkg/an5",
+      "loc": "hkg",
+      "gen": "an5",
+      "size": "MEDIUM",
+      "name": "HKG.AN5.Pro.MEDIUM",
+      "price": "$279.90",
+      "popular": false,
+      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+    },
+    {
+      "id": "hkg-an5-large",
+      "family": "hkg/an5",
+      "loc": "hkg",
+      "gen": "an5",
+      "size": "LARGE",
+      "name": "HKG.AN5.Pro.LARGE",
+      "price": "$359.90",
+      "popular": false,
+      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+    },
+    {
+      "id": "hkg-an5-giant",
+      "family": "hkg/an5",
+      "loc": "hkg",
+      "gen": "an5",
+      "size": "GIANT",
+      "name": "HKG.AN5.Pro.GIANT",
+      "price": "$759.90",
+      "popular": false,
+      "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
     },
     {
       "id": "tyo-as3-tiny",
