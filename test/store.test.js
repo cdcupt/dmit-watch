@@ -15,10 +15,10 @@ function freshStore() {
   return store;
 }
 
-test('seeds exactly 32 plans across 6 families', () => {
+test('seeds exactly 37 plans across 7 families', () => {
   const store = freshStore();
-  assert.equal(store.allPlans().length, 32);
-  assert.equal(store.allFamilyHealth().length, 6);
+  assert.equal(store.allPlans().length, 37);
+  assert.equal(store.allFamilyHealth().length, 7);
   store.close();
 });
 
@@ -40,8 +40,8 @@ test('reseed is idempotent and preserves runtime state', () => {
 
   const again = store.seedFromWatchlist(wl);
   assert.equal(again.plansInserted, 0);
-  assert.equal(again.plansUpdated, 32);
-  assert.equal(store.allPlans().length, 32); // no duplicates
+  assert.equal(again.plansUpdated, 37);
+  assert.equal(store.allPlans().length, 37); // no duplicates
 
   const p = store.getPlan('lax-an4-medium');
   assert.equal(p.last_known, 'IN'); // runtime state survived the reseed
@@ -192,7 +192,7 @@ test('on-disk store opens WAL, persists, and prune+VACUUM compacts', () => {
     store.recordTransition({ planId: 'lax-an4-medium', from: 'IN', to: 'OUT', ts: old - 100 * 86_400_000 });
     const res = store.prune({ days: 90, now: old, vacuum: true }); // default-vacuum branch
     assert.equal(res.transitions, 1);
-    assert.equal(store.allPlans().length, 32);
+    assert.equal(store.allPlans().length, 37);
     store.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -256,11 +256,12 @@ test('openStore migrates a pre-blind family_health table in place', async () => 
 
 test('seedFromWatchlist deletes retired plans/families and their history (no ghosts)', () => {
   const wl = loadWatchlist();
-  // Simulate the pre-retirement world: the real watchlist plus a doomed family.
-  const doomedFam = { key: 'hkg/an5', loc: 'hkg', gen: 'an5', label: 'HKG·AN5' };
+  // Simulate a pre-retirement world: the real watchlist plus a doomed family
+  // (synthetic — hkg/an5, the original retiree, is back in the real watchlist).
+  const doomedFam = { key: 'sin/as3', loc: 'sin', gen: 'as3', label: 'SIN·AS3' };
   const doomedPlan = {
-    id: 'hkg-an5-mini', family: 'hkg/an5', loc: 'hkg', gen: 'an5', size: 'MINI',
-    name: 'HKG.AN5.Pro.MINI', price: '$92.90', popular: false,
+    id: 'sin-as3-mini', family: 'sin/as3', loc: 'sin', gen: 'as3', size: 'MINI',
+    name: 'SIN.AS3.Pro.MINI', price: '$92.90', popular: false,
   };
   const store = openStore(':memory:');
   store.seedFromWatchlist({
@@ -269,19 +270,19 @@ test('seedFromWatchlist deletes retired plans/families and their history (no gho
     plans: [...wl.plans, doomedPlan],
   });
   // Ghost state that used to poison the panel header + history forever.
-  store.setFamilyHealth('hkg/an5', { backoffLevel: 4, lastOutcome: '403' });
-  store.recordTransition({ planId: 'hkg-an5-mini', from: 'OUT', to: 'IN', ts: 1 });
-  store.logTelegram({ planId: 'hkg-an5-mini', ts: 2, sentOk: true });
+  store.setFamilyHealth('sin/as3', { backoffLevel: 4, lastOutcome: '403' });
+  store.recordTransition({ planId: 'sin-as3-mini', from: 'OUT', to: 'IN', ts: 1 });
+  store.logTelegram({ planId: 'sin-as3-mini', ts: 2, sentOk: true });
 
   const res = store.seedFromWatchlist(wl); // the retirement re-seed
   assert.equal(res.plansRemoved, 1);
   assert.equal(res.familiesRemoved, 1);
-  assert.equal(store.allPlans().length, 32);
-  assert.equal(store.allFamilyHealth().length, 6);
-  assert.equal(store.getFamilyHealth('hkg/an5'), null);
-  assert.equal(store.getPlan('hkg-an5-mini'), null);
-  assert.equal(store.transitionsForPlan('hkg-an5-mini').length, 0);
-  assert.ok(store.recentTelegram().every((r) => r.plan_id !== 'hkg-an5-mini'));
+  assert.equal(store.allPlans().length, 37);
+  assert.equal(store.allFamilyHealth().length, 7);
+  assert.equal(store.getFamilyHealth('sin/as3'), null);
+  assert.equal(store.getPlan('sin-as3-mini'), null);
+  assert.equal(store.transitionsForPlan('sin-as3-mini').length, 0);
+  assert.ok(store.recentTelegram().every((r) => r.plan_id !== 'sin-as3-mini'));
   // Surviving rows untouched.
   assert.equal(store.getPlan('hkg-as3-tiny').status, 'OUT');
   store.close();

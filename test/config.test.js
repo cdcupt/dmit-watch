@@ -107,13 +107,15 @@ test('a valid watchlist loads and round-trips through writeWatchlist', () => {
   }
 });
 
-test('the real config/watchlist.json is valid (32 plans, 6 families — hkg/an5 retired, qq.pw added)', () => {
+test('the real config/watchlist.json is valid (37 plans, 7 families — hkg/an5 re-added)', () => {
   const wl = loadWatchlist();
-  assert.equal(wl.plans.length, 32);
-  assert.equal(wl.families.length, 6);
-  // DMIT's hkg/an5 cart URL serves AS3 content since ~2026-06-28 (generation
-  // withdrawn) — watching it is permanent blind noise.
-  assert.equal(wl.families.find((f) => f.key === 'hkg/an5'), undefined);
+  assert.equal(wl.plans.length, 37);
+  assert.equal(wl.families.length, 7);
+  // hkg/an5 is watchable again: DMIT re-enabled the generation 2026-07-04.
+  // Its ?generation=an5 deep link still opens on AS3 (cart deep-link bug), but
+  // the reader's generation-toggle fallback (src/chrome.js) clicks through, so
+  // watching it is no longer permanent blind noise.
+  assert.ok(wl.families.find((f) => f.key === 'hkg/an5'));
 });
 
 test('cooldown is short enough not to swallow a genuine brief restock', () => {
