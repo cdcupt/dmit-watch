@@ -1,0 +1,15 @@
+# vps-stock — public VPS stock board (board-server/) vhost snippet (TECH §6).
+#
+# One tenant, one snippet: drop this file into the shared Caddy edge's snippet
+# directory and add a single `import` line to the main Caddyfile — other
+# tenants' snippets are never edited. Edge changes are a container RESTART,
+# not a reload (a reload can pin a stale config inode); smoke-test every
+# tenant domain afterwards.
+#
+# VPS_STOCK_PORT must match the loopback host port in the compose port map
+# (defaults to 8106 here and there); set it in the Caddy container's
+# environment, or replace the placeholder with the literal port at deploy time.
+vps-stock.daichenlab.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:{$VPS_STOCK_PORT:8106}
+}
