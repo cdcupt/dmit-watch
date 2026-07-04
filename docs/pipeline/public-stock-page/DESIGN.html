@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DESIGN — Public VPS Stock Page (vps-stock.daichenlab.com)</title>
+<style>
+  :root{
+    --ink:#111418; --muted:#5b6572; --line:#e3e7ec; --bg:#ffffff; --soft:#f6f8fa;
+    --accent:#0b62d6; --ok:#0a8a3a; --bad:#c62828; --warn:#b26a00; --chip:#eef3fb;
+    --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:980px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:1.7rem;line-height:1.25;margin:.2rem 0 .3rem}
+  h2{font-size:1.22rem;margin:2.4rem 0 .7rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+  h3{font-size:1rem;margin:1.3rem 0 .4rem}
+  p{margin:.5rem 0}
+  .sub{color:var(--muted);font-size:.95rem}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin:.8rem 0 0}
+  .chip{background:var(--chip);color:var(--accent);border-radius:100px;padding:2px 12px;font-size:.8rem;font-weight:600}
+  .chip.gray{background:var(--soft);color:var(--muted)}
+  figure{margin:1rem 0}
+  .svgwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:10px}
+  .svgwrap svg{display:block;max-width:100%;height:auto;min-width:940px;margin:0 auto}
+  figcaption{color:var(--muted);font-size:.85rem;margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:.6rem 0}
+  th,td{border-bottom:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  code{font-family:var(--mono);font-size:.85em;background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .in{color:var(--ok);font-weight:700}.out{color:var(--bad);font-weight:700}.warn{color:var(--warn);font-weight:700}
+  ul{margin:.4rem 0 .4rem 1.2rem;padding:0}
+  li{margin:.3rem 0}
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--soft);border-radius:8px;padding:12px 16px;margin:1rem 0}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:1.2rem 0}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc ol{margin:.3rem 0 .2rem 1.2rem;padding:0}
+  .toc li{margin:.15rem 0}
+</style>
+</head>
+<body>
+<main>
+
+<h1>DESIGN — Public VPS Stock Page</h1>
+<p class="sub">Interaction &amp; UI/UX specification for the public board at <code>vps-stock.daichenlab.com</code> — a trimmed, read-only, stranger-safe skin of the local dmit-watch panel. Companion mockup: <code>MOCKUP.html</code> (clickable, sample data).</p>
+<div class="meta">
+  <span class="chip">DESIGN · v1</span>
+  <span class="chip gray">feature: public-stock-page</span>
+  <span class="chip gray">PRD: docs/pipeline/public-stock-page/PRD.html</span>
+  <span class="chip gray">2026-07-04</span>
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#glance">★ At a glance — screen map</a></li>
+    <li><a href="#flows">User flows</a></li>
+    <li><a href="#layout">Screen layout spec &amp; card anatomy</a></li>
+    <li><a href="#states">All states</a></li>
+    <li><a href="#fresh">Freshness model</a></li>
+    <li><a href="#responsive">Responsive behavior</a></li>
+    <li><a href="#a11y">Accessibility</a></li>
+    <li><a href="#removed">Removed vs the local panel</a></li>
+    <li><a href="#inventory">Component inventory</a></li>
+    <li><a href="#notes">Implementation notes for Frontend</a></li>
+  </ol>
+</div>
+
+<h2 id="glance">1 · ★ At a glance</h2>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1170 830" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0a8a3a"/></marker>
+  </defs>
+
+  <!-- ==================== LEFT: PAGE MAP ==================== -->
+  <text x="15" y="30" font-size="13" font-weight="700" fill="#111418">PAGE MAP — one scrolling screen, answer first</text>
+  <rect x="15" y="45" width="480" height="760" rx="12" fill="#fff" stroke="#e3e7ec"/>
+
+  <!-- sticky header -->
+  <rect x="30" y="60" width="450" height="56" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="44" y="83" font-size="13" font-weight="800" fill="#111418" font-family="Menlo,monospace">VPS · STOCK WATCH</text>
+  <text x="44" y="100" font-size="9.5" fill="#5b6572">DMIT Premium &amp; watched providers · read-only</text>
+  <rect x="330" y="72" width="138" height="24" rx="12" fill="#e7f5ec" stroke="#0a8a3a"/>
+  <circle cx="344" cy="84" r="4" fill="#0a8a3a"/>
+  <text x="353" y="88" font-size="10" fill="#0a8a3a" font-weight="700">updated 38s ago</text>
+  <text x="398" y="68" font-size="9" fill="#5b6572" text-anchor="middle">— sticky zone —</text>
+
+  <!-- stale banner slot -->
+  <text x="480" y="124" font-size="9" fill="#5b6572" text-anchor="end">only when age &gt; 5 min · board dims below</text>
+  <rect x="30" y="128" width="450" height="32" rx="8" fill="#fdf6e7" stroke="#b26a00" stroke-dasharray="5 4"/>
+  <text x="46" y="148" font-size="10.5" fill="#b26a00" font-weight="700">⚠ Data may be stale — watcher offline · last update 8m ago</text>
+
+  <!-- stats strip -->
+  <rect x="30" y="170" width="450" height="42" rx="10" fill="#fff" stroke="#e3e7ec"/>
+  <rect x="40" y="178" width="92" height="26" rx="13" fill="#e7f5ec" stroke="#0a8a3a"/>
+  <text x="86" y="195" font-size="11.5" font-weight="800" fill="#0a8a3a" text-anchor="middle">2 in stock</text>
+  <text x="145" y="195" font-size="11" fill="#5b6572">35 waiting · 37 watched</text>
+  <text x="310" y="195" font-size="10" fill="#98a2ae">LAX 16 · HKG 10 · TYO 7 · HNL 4</text>
+
+  <!-- jump chips -->
+  <g font-size="10" fill="#5b6572">
+    <rect x="40" y="222" width="72" height="24" rx="12" fill="#fff" stroke="#e3e7ec"/><text x="76" y="238" text-anchor="middle">🇺🇸 LAX</text>
+    <rect x="120" y="222" width="72" height="24" rx="12" fill="#fff" stroke="#e3e7ec"/><text x="156" y="238" text-anchor="middle">🇭🇰 HKG</text>
+    <rect x="200" y="222" width="72" height="24" rx="12" fill="#fff" stroke="#e3e7ec"/><text x="236" y="238" text-anchor="middle">🇯🇵 TYO</text>
+    <rect x="280" y="222" width="72" height="24" rx="12" fill="#fff" stroke="#e3e7ec"/><text x="316" y="238" text-anchor="middle">🇺🇸 HNL</text>
+  </g>
+  <text x="362" y="238" font-size="9" fill="#5b6572">← anchor chips → DC sections</text>
+
+  <!-- explainer -->
+  <rect x="30" y="256" width="450" height="30" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="44" y="275" font-size="9.5" fill="#5b6572">ⓘ read every ~60 s by an independent watcher · buy links go to the provider cart</text>
+
+  <!-- IN STOCK NOW -->
+  <text x="32" y="310" font-size="11" font-weight="800" fill="#0a8a3a">✅ IN STOCK NOW — first content, hero cards</text>
+  <g>
+    <rect x="30" y="320" width="218" height="118" rx="10" fill="#f0faf3" stroke="#0a8a3a" stroke-width="1.5"/>
+    <rect x="40" y="330" width="198" height="20" rx="6" fill="#0a8a3a"/>
+    <text x="139" y="344" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">IN STOCK</text>
+    <text x="42" y="368" font-size="9.5" font-weight="700" fill="#b2622e" font-family="Menlo,monospace">HKG.AS3.Pro.TINY</text>
+    <text x="42" y="382" font-size="8.5" fill="#5b6572">🇭🇰 Hong Kong · EPYC 7003</text>
+    <text x="42" y="400" font-size="11.5" font-weight="700" fill="#0b62d6" font-family="Menlo,monospace">$39.90 /mo</text>
+    <rect x="40" y="408" width="76" height="22" rx="6" fill="#0a8a3a"/>
+    <text x="78" y="423" font-size="9.5" font-weight="800" fill="#fff" text-anchor="middle">Buy now ▸</text>
+    <text x="124" y="423" font-size="8.5" fill="#0a8a3a">in stock · 26m</text>
+  </g>
+  <g>
+    <rect x="262" y="320" width="218" height="118" rx="10" fill="#f0faf3" stroke="#0a8a3a" stroke-width="1.5"/>
+    <rect x="272" y="330" width="198" height="20" rx="6" fill="#0a8a3a"/>
+    <text x="371" y="344" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">IN STOCK</text>
+    <text x="274" y="368" font-size="9.5" font-weight="700" fill="#b2622e" font-family="Menlo,monospace">TYO.AS3.Pro.STARTER</text>
+    <text x="274" y="382" font-size="8.5" fill="#5b6572">🇯🇵 Tokyo · EPYC 7003</text>
+    <text x="274" y="400" font-size="11.5" font-weight="700" fill="#0b62d6" font-family="Menlo,monospace">$45.90 /mo</text>
+    <rect x="272" y="408" width="76" height="22" rx="6" fill="#0a8a3a"/>
+    <text x="310" y="423" font-size="9.5" font-weight="800" fill="#fff" text-anchor="middle">Buy now ▸</text>
+    <text x="356" y="423" font-size="8.5" fill="#0a8a3a">in stock · 2h 14m</text>
+  </g>
+
+  <!-- WAITING WALL -->
+  <text x="32" y="466" font-size="11" font-weight="800" fill="#5b6572">⏳ WAITING FOR RESTOCK — DC → generation → plan</text>
+  <rect x="30" y="476" width="450" height="34" rx="9" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="44" y="498" font-size="11" font-weight="700" fill="#111418">🇺🇸 Los Angeles</text>
+  <rect x="180" y="482" width="100" height="21" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="230" y="496" font-size="8.5" fill="#0b62d6" font-weight="700" text-anchor="middle">DMIT · Premium</text>
+  <text x="295" y="497" font-size="9" fill="#98a2ae">16 watched</text>
+  <rect x="40" y="518" width="176" height="26" rx="8" fill="#fff" stroke="#e3e7ec"/>
+  <text x="52" y="535" font-size="9.5" font-weight="700" fill="#111418" font-family="Menlo,monospace">AS3 · AMD EPYC 7003</text>
+  <g font-family="Menlo,monospace">
+    <rect x="40" y="552" width="140" height="64" rx="8" fill="#fff" stroke="#e3e7ec"/><rect x="40" y="552" width="3" height="64" fill="#cf8d8d"/>
+    <rect x="50" y="560" width="120" height="16" rx="5" fill="#f6eeee" stroke="#e6cdcd"/><text x="110" y="571" font-size="7.5" font-weight="800" fill="#9c4a4a" text-anchor="middle">OUT OF STOCK</text>
+    <text x="52" y="592" font-size="8" font-weight="700" fill="#b2622e">LAX.AS3.Pro.TINY</text>
+    <text x="52" y="606" font-size="8.5" font-weight="700" fill="#0b62d6">$10.90 /mo</text>
+    <rect x="188" y="552" width="140" height="64" rx="8" fill="#fff" stroke="#e3e7ec"/><rect x="188" y="552" width="3" height="64" fill="#cf8d8d"/>
+    <rect x="198" y="560" width="120" height="16" rx="5" fill="#f6eeee" stroke="#e6cdcd"/><text x="258" y="571" font-size="7.5" font-weight="800" fill="#9c4a4a" text-anchor="middle">OUT OF STOCK</text>
+    <text x="200" y="592" font-size="8" font-weight="700" fill="#b2622e">LAX.AS3.Pro.POCKET</text>
+    <text x="200" y="606" font-size="8.5" font-weight="700" fill="#0b62d6">$16.90 /mo</text>
+    <rect x="336" y="552" width="140" height="64" rx="8" fill="#fff" stroke="#e3e7ec"/><rect x="336" y="552" width="3" height="64" fill="#98a2ae"/>
+    <rect x="346" y="560" width="120" height="16" rx="5" fill="#f6f8fa" stroke="#98a2ae" stroke-dasharray="3 3"/><text x="406" y="571" font-size="7.5" font-weight="800" fill="#5b6572" text-anchor="middle">CHECKING…</text>
+    <text x="348" y="592" font-size="8" font-weight="700" fill="#b2622e">LAX.AN5.Pro.MEDIUM</text>
+    <text x="348" y="606" font-size="8.5" font-weight="700" fill="#0b62d6">$289.90 /mo</text>
+  </g>
+  <text x="40" y="636" font-size="9" fill="#98a2ae">…LAX·AN4 and LAX·AN5 generation groups follow</text>
+  <rect x="30" y="648" width="450" height="30" rx="9" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="44" y="668" font-size="10.5" font-weight="700" fill="#111418">🇭🇰 Hong Kong <tspan font-size="9" font-weight="400" fill="#98a2ae">· 10 watched · 1 in stock ↑</tspan></text>
+  <text x="30" y="698" font-size="9" fill="#98a2ae">…🇯🇵 Tokyo · then 🇺🇸 Honolulu — qq.pw VDS with a “qq.pw · WHMCS” provider badge</text>
+
+  <!-- footer -->
+  <rect x="30" y="710" width="450" height="32" rx="9" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="44" y="730" font-size="9.5" fill="#5b6572">footer: how it works · “not affiliated” disclaimer · GitHub repo (only external link)</text>
+  <text x="30" y="766" font-size="9.5" fill="#5b6572">37 cards today · IN cards lifted to the top · wall keeps watchlist config order</text>
+
+  <!-- ==================== RIGHT: PANELS ==================== -->
+  <!-- CARD ANATOMY -->
+  <rect x="515" y="45" width="640" height="255" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="530" y="70" font-size="12.5" font-weight="700" fill="#111418">CARD ANATOMY — public IN card</text>
+  <rect x="530" y="82" width="230" height="198" rx="10" fill="#f0faf3" stroke="#0a8a3a" stroke-width="1.5"/>
+  <rect x="530" y="82" width="4" height="198" fill="#0a8a3a"/>
+  <rect x="546" y="94" width="200" height="24" rx="7" fill="#0a8a3a"/>
+  <text x="646" y="110" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">IN STOCK</text>
+  <text x="548" y="138" font-size="10" font-weight="700" fill="#b2622e" font-family="Menlo,monospace">HKG.AS3.Pro.TINY</text>
+  <rect x="688" y="127" width="52" height="15" rx="7" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="714" y="138" font-size="8" fill="#0b62d6" font-weight="700" text-anchor="middle">Popular</text>
+  <text x="548" y="156" font-size="9.5" fill="#5b6572">🇭🇰 Hong Kong · AMD EPYC 7003</text>
+  <text x="548" y="180" font-size="13" font-weight="700" fill="#0b62d6" font-family="Menlo,monospace">$ 39.90 <tspan font-size="9" fill="#5b6572">USD /mo</tspan></text>
+  <line x1="548" y1="194" x2="744" y2="194" stroke="#e3e7ec"/>
+  <text x="548" y="210" font-size="9.5" fill="#98a2ae">▤ 1 vCPU · 1 GB · CN2 GIA</text>
+  <rect x="546" y="224" width="88" height="26" rx="7" fill="#0a8a3a"/>
+  <text x="590" y="241" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">Buy now ▸</text>
+  <text x="642" y="241" font-size="9.5" fill="#0a8a3a" font-weight="700">in stock · 26m</text>
+  <g font-size="10.5" fill="#111418">
+    <line x1="748" y1="106" x2="786" y2="106" stroke="#5b6572" marker-start="url(#arr)"/>
+    <text x="792" y="110">① status hero — the only loud element; uppercase mono pill</text>
+    <line x1="748" y1="134" x2="786" y2="134" stroke="#5b6572" marker-start="url(#arr)"/>
+    <text x="792" y="138">② SKU name + “Popular” badge (both from the snapshot)</text>
+    <line x1="748" y1="152" x2="786" y2="152" stroke="#5b6572" marker-start="url(#arr)"/>
+    <text x="792" y="156">③ context line — IN cards only; strangers don't parse SKUs</text>
+    <line x1="748" y1="176" x2="786" y2="176" stroke="#5b6572" marker-start="url(#arr)"/>
+    <text x="792" y="180">④ price — provider list price, mono, blue</text>
+    <line x1="748" y1="206" x2="786" y2="206" stroke="#5b6572" marker-start="url(#arr)"/>
+    <text x="792" y="210">⑤ specs slot — rendered ONLY if the snapshot carries spec fields</text>
+    <line x1="748" y1="238" x2="786" y2="238" stroke="#5b6572" marker-start="url(#arr)"/>
+    <text x="792" y="242">⑥ Buy now ▸ → provider cart (new tab) + honest in-stock age</text>
+  </g>
+
+  <!-- STATUS VOCABULARY -->
+  <rect x="515" y="315" width="640" height="150" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="530" y="340" font-size="12.5" font-weight="700" fill="#111418">STATUS VOCABULARY — three states, one of them deliberately neutral</text>
+  <rect x="530" y="354" width="180" height="26" rx="7" fill="#0a8a3a"/>
+  <text x="620" y="371" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">IN STOCK</text>
+  <text x="530" y="400" font-size="9.5" fill="#5b6572">loud, celebratory · green edge,</text>
+  <text x="530" y="414" font-size="9.5" fill="#5b6572">tinted card, Buy button</text>
+  <rect x="738" y="354" width="180" height="26" rx="7" fill="#f6eeee" stroke="#d8b4b4"/>
+  <text x="828" y="371" font-size="10.5" font-weight="800" fill="#9c4a4a" text-anchor="middle">OUT OF STOCK</text>
+  <text x="738" y="400" font-size="9.5" fill="#5b6572">calm — the wall's default ·</text>
+  <text x="738" y="414" font-size="9.5" fill="#5b6572">muted edge, no footer at all</text>
+  <rect x="946" y="354" width="180" height="26" rx="7" fill="#f6f8fa" stroke="#98a2ae" stroke-dasharray="4 3"/>
+  <text x="1036" y="371" font-size="10.5" font-weight="800" fill="#5b6572" text-anchor="middle">CHECKING…</text>
+  <text x="946" y="400" font-size="9.5" fill="#5b6572">neutral grey — NEVER red/amber ·</text>
+  <text x="946" y="414" font-size="9.5" fill="#5b6572">covers snapshot unknown + checking</text>
+  <text x="530" y="448" font-size="10" fill="#5b6572">public mapping: <tspan font-weight="700">unknown → “Checking…”</tspan> — the page never shows an alarming state to a stranger (PRD D5)</text>
+
+  <!-- FRESHNESS LADDER -->
+  <rect x="515" y="480" width="640" height="170" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="530" y="505" font-size="12.5" font-weight="700" fill="#111418">FRESHNESS LADDER</text>
+  <rect x="545" y="520" width="212" height="34" rx="8" fill="#e7f5ec" stroke="#0a8a3a"/>
+  <text x="651" y="536" font-size="10" font-weight="800" fill="#0a8a3a" text-anchor="middle">FRESH · pill green</text>
+  <text x="651" y="549" font-size="8.5" fill="#0a8a3a" text-anchor="middle">“updated 38s ago”</text>
+  <rect x="761" y="520" width="212" height="34" rx="8" fill="#fdf6e7" stroke="#b26a00"/>
+  <text x="867" y="536" font-size="10" font-weight="800" fill="#b26a00" text-anchor="middle">AGING · pill amber</text>
+  <text x="867" y="549" font-size="8.5" fill="#b26a00" text-anchor="middle">“updated 3m 10s ago”</text>
+  <rect x="977" y="520" width="143" height="34" rx="8" fill="#fdf6e7" stroke="#b26a00" stroke-width="2"/>
+  <text x="1048" y="536" font-size="10" font-weight="800" fill="#b26a00" text-anchor="middle">STALE</text>
+  <text x="1048" y="549" font-size="8.5" fill="#b26a00" text-anchor="middle">banner + dim + pulse</text>
+  <line x1="545" y1="566" x2="1120" y2="566" stroke="#5b6572" marker-end="url(#arr)"/>
+  <g font-size="9" fill="#5b6572">
+    <line x1="545" y1="560" x2="545" y2="572" stroke="#5b6572"/><text x="545" y="584" text-anchor="middle">push received</text>
+    <line x1="761" y1="560" x2="761" y2="572" stroke="#5b6572"/><text x="761" y="584" text-anchor="middle">2 min</text>
+    <line x1="977" y1="560" x2="977" y2="572" stroke="#5b6572"/><text x="977" y="584" text-anchor="middle">5 min</text>
+  </g>
+  <path d="M1040 516 C 950 494, 750 494, 660 514" fill="none" stroke="#0a8a3a" stroke-width="1.5" marker-end="url(#arrG)"/>
+  <text x="850" y="498" font-size="9.5" fill="#0a8a3a" font-weight="700" text-anchor="middle">any newer push → back to FRESH</text>
+  <text x="530" y="604" font-size="10" fill="#111418">&gt; 5 min: <tspan font-weight="700" fill="#b26a00">⚠ sticky banner</tspan> + board dims to 55% + pill pulses — honest, not broken-looking</text>
+  <text x="530" y="622" font-size="10" fill="#5b6572">driven by server receivedAt only — never by connection state (a live tab with old data must read as old)</text>
+  <text x="530" y="640" font-size="10" fill="#5b6572">page polls GET /api/state every 30 s · “updated Xs ago” label re-renders locally every 1 s</text>
+
+  <!-- REMOVED -->
+  <rect x="515" y="665" width="640" height="140" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="530" y="690" font-size="12.5" font-weight="700" fill="#111418">REMOVED vs the local panel — separate public entry files, not flag-gates</text>
+  <g font-size="10" fill="#5b6572">
+    <text x="530" y="712">✕ tabs: History · Health · Watchlist</text>
+    <text x="530" y="730">✕ alarm zone, alarm banner, Silence button</text>
+    <text x="530" y="748">✕ audio + browser notifications + mute</text>
+    <text x="530" y="766">✕ blind-watcher banner, SSE/watcher lamps</text>
+    <text x="850" y="712">✕ remove-family and every POST control</text>
+    <text x="850" y="730">✕ per-card “checked Xs ago” (operator detail)</text>
+    <text x="850" y="748">✕ “Free Setup” + specs placeholder strings</text>
+    <text x="850" y="766">✕ noindex,nofollow — this page is meant to be shared</text>
+  </g>
+  <text x="530" y="792" font-size="9.5" fill="#98a2ae">everything else — grid-paper bg, mono pills, DC→gen→card wall, stat hero, FLIP motion — is kept as-is</text>
+</svg>
+</div>
+<figcaption>The whole design on one screen: page map (left), card anatomy, the three-word status vocabulary, the freshness ladder, and what was cut from the panel (right).</figcaption>
+</figure>
+
+<h2 id="flows">2 · User flows</h2>
+
+<h3>2.1 Arrival → scan → buy</h3>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+  </defs>
+  <g font-size="12" fill="#111418">
+    <rect x="20" y="70" width="150" height="58" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/>
+    <text x="95" y="94" text-anchor="middle" font-weight="700">Visitor opens link</text>
+    <text x="95" y="112" text-anchor="middle" font-size="10" fill="#5b6572">no auth · no cookies</text>
+    <line x1="170" y1="99" x2="208" y2="99" stroke="#5b6572" stroke-width="2" marker-end="url(#fa)"/>
+    <rect x="210" y="70" width="180" height="58" rx="10" fill="#fff" stroke="#c9d2dc"/>
+    <text x="300" y="94" text-anchor="middle" font-weight="700">Board paints &lt; 1 s</text>
+    <text x="300" y="112" text-anchor="middle" font-size="10" fill="#5b6572">snapshot already in memory</text>
+    <line x1="390" y1="99" x2="428" y2="99" stroke="#5b6572" stroke-width="2" marker-end="url(#fa)"/>
+    <rect x="430" y="70" width="170" height="58" rx="10" fill="#fff" stroke="#c9d2dc"/>
+    <text x="515" y="94" text-anchor="middle" font-weight="700">Trust check</text>
+    <text x="515" y="112" text-anchor="middle" font-size="10" fill="#5b6572">pill: “updated 38s ago”</text>
+    <line x1="600" y1="99" x2="638" y2="99" stroke="#5b6572" stroke-width="2" marker-end="url(#fa)"/>
+    <rect x="640" y="70" width="150" height="58" rx="10" fill="#eef3fb" stroke="#c9d2dc"/>
+    <text x="715" y="94" text-anchor="middle" font-weight="700">Hero count</text>
+    <text x="715" y="112" text-anchor="middle" font-size="10" fill="#5b6572">“2 in stock”</text>
+    <line x1="790" y1="88" x2="838" y2="62" stroke="#0a8a3a" stroke-width="2" marker-end="url(#fa)"/>
+    <text x="812" y="56" font-size="10" fill="#0a8a3a" font-weight="700">≥ 1 in stock</text>
+    <rect x="840" y="24" width="260" height="66" rx="10" fill="#f0faf3" stroke="#0a8a3a" stroke-width="1.5"/>
+    <text x="970" y="48" text-anchor="middle" font-weight="700" fill="#0a8a3a">IN section — right below the hero</text>
+    <text x="970" y="66" text-anchor="middle" font-size="10" fill="#5b6572">price · specs → Buy now ▸ → provider cart</text>
+    <text x="970" y="80" text-anchor="middle" font-size="10" fill="#5b6572">(new tab — the board stays open)</text>
+    <line x1="790" y1="112" x2="838" y2="150" stroke="#5b6572" stroke-width="2" marker-end="url(#fa)"/>
+    <text x="800" y="150" font-size="10" fill="#5b6572">0 in stock</text>
+    <rect x="840" y="130" width="260" height="60" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/>
+    <text x="970" y="154" text-anchor="middle" font-weight="700" fill="#5b6572">Scan the wall by datacenter</text>
+    <text x="970" y="172" text-anchor="middle" font-size="10" fill="#5b6572">jump chips → DC anchors · bookmark, return later</text>
+  </g>
+  <text x="20" y="240" font-size="11.5" fill="#111418">Zero interactions before the answer: the count is in the hero pill, the buyable cards sit directly beneath it.</text>
+  <text x="20" y="260" font-size="11.5" fill="#5b6572">Buying is the page's second click. If the stale banner is up, the visitor knows the data age before acting — no false confidence.</text>
+</svg>
+</div>
+<figcaption>Primary flow. The board answers “can I buy right now?” before the visitor touches anything.</figcaption>
+</figure>
+
+<h3>2.2 Stale-state flow (watcher goes offline and comes back)</h3>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 440" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="sa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+  </defs>
+  <g font-size="12" font-weight="700" fill="#111418" text-anchor="middle">
+    <rect x="90" y="20" width="160" height="34" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/><text x="170" y="42">Mac watcher</text>
+    <rect x="480" y="20" width="160" height="34" rx="8" fill="#eef3fb" stroke="#c9d2dc"/><text x="560" y="42">vps-stock server</text>
+    <rect x="860" y="20" width="170" height="34" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/><text x="945" y="42">Visitor's page</text>
+  </g>
+  <line x1="170" y1="54" x2="170" y2="420" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <line x1="560" y1="54" x2="560" y2="420" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <line x1="945" y1="54" x2="945" y2="420" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <g font-size="10.5" fill="#111418">
+    <line x1="170" y1="90" x2="558" y2="90" stroke="#5b6572" stroke-width="1.8" marker-end="url(#sa)"/>
+    <text x="364" y="83" text-anchor="middle">POST /api/push · every ~60 s</text>
+    <text x="364" y="104" text-anchor="middle" font-size="9.5" fill="#5b6572">server: receivedAt = now</text>
+    <line x1="945" y1="130" x2="562" y2="130" stroke="#5b6572" stroke-width="1.8" marker-end="url(#sa)"/>
+    <text x="753" y="123" text-anchor="middle">GET /api/state · every 30 s</text>
+    <line x1="560" y1="148" x2="943" y2="148" stroke="#5b6572" stroke-dasharray="5 4" marker-end="url(#sa)"/>
+    <text x="753" y="164" text-anchor="middle" font-size="9.5" fill="#0a8a3a" font-weight="700">pill: “updated 38s ago” · green</text>
+    <text x="170" y="200" text-anchor="middle" font-size="16" fill="#c62828" font-weight="800">✕</text>
+    <text x="170" y="218" text-anchor="middle" font-size="9.5" fill="#c62828" font-weight="700">Mac asleep / network flap — pushes stop</text>
+    <line x1="945" y1="250" x2="562" y2="250" stroke="#5b6572" stroke-width="1.8" marker-end="url(#sa)"/>
+    <line x1="560" y1="266" x2="943" y2="266" stroke="#5b6572" stroke-dasharray="5 4" marker-end="url(#sa)"/>
+    <text x="753" y="243" text-anchor="middle">poll — same snapshot, receivedAt frozen</text>
+    <text x="753" y="282" text-anchor="middle" font-size="9.5" fill="#b26a00" font-weight="700">age 3m → pill amber (no banner yet)</text>
+    <rect x="790" y="298" width="310" height="34" rx="8" fill="#fdf6e7" stroke="#b26a00"/>
+    <text x="945" y="319" text-anchor="middle" font-size="9.5" fill="#b26a00" font-weight="700">age &gt; 5 min → ⚠ banner · board dims · pill pulses</text>
+    <line x1="170" y1="360" x2="558" y2="360" stroke="#0a8a3a" stroke-width="1.8" marker-end="url(#sa)"/>
+    <text x="364" y="353" text-anchor="middle" fill="#0a8a3a" font-weight="700">push resumes → receivedAt fresh</text>
+    <line x1="945" y1="396" x2="562" y2="396" stroke="#5b6572" stroke-width="1.8" marker-end="url(#sa)"/>
+    <line x1="560" y1="410" x2="943" y2="410" stroke="#5b6572" stroke-dasharray="5 4" marker-end="url(#sa)"/>
+    <text x="753" y="389" text-anchor="middle" font-size="9.5" fill="#0a8a3a" font-weight="700">≤ 30 s later: banner clears · board un-dims · pill green</text>
+  </g>
+</svg>
+</div>
+<figcaption>Staleness is a first-class designed state, not an error: the page keeps showing the last-known board, clearly labeled with its age (PRD G3).</figcaption>
+</figure>
+
+<h2 id="layout">3 · Screen layout spec</h2>
+<ul>
+  <li><strong>Sticky zone</strong> — header + stale banner wrapped in one <code>position:sticky</code> container so the freshness signal never scrolls away on the ~6-screen wall. Header: brand (<code>VPS · STOCK WATCH</code>, mono 800) + one-line public subtitle; right side holds exactly one lamp: the freshness pill. When the stale banner is shown it pins directly under the header; the board dims but the sticky zone stays crisp.</li>
+  <li><strong>Stats strip</strong> — the panel's <code>stat-hero</code> pill (“N in stock”, green when N≥1, muted when 0) + “M waiting · T watched” + per-location breakdown. This is the page's first read.</li>
+  <li><strong>Jump chips</strong> — one horizontal, scrollable row of anchor chips (flag + DC code) linking to <code>#dc-*</code> sections; <code>scroll-margin-top</code> clears the sticky zone.</li>
+  <li><strong>Explainer note</strong> — replaces the panel's “Routing Profile” note: one sentence on what the board is, how often it reads, and that buy links go to the provider cart. No marketing copy.</li>
+  <li><strong>“In stock now” FIRST</strong> — order swapped vs the panel (which lists waiting first for the operator). Hero grid (min 240px columns), cards carry a context line (flag · city · CPU) because they are lifted out of their DC group.</li>
+  <li><strong>Waiting wall</strong> — identical structure to the panel: DC bar (flag card + provider badge + count) → generation card (EPYC chip) → plan card grid (min 170px columns). Provider badge is data-driven: <code>DMIT · Premium</code> for DMIT families, <code>qq.pw · WHMCS</code> for WHMCS provider families.</li>
+  <li><strong>Footer</strong> — how-it-works (3 short lines), “not affiliated” disclaimer, GitHub repo link. The only external link besides buy links.</li>
+</ul>
+
+<h3>3.1 Card anatomy (all three variants)</h3>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <!-- IN -->
+  <text x="30" y="34" font-size="12" font-weight="700" fill="#0a8a3a">IN — hero treatment, full footer</text>
+  <g font-family="Menlo,monospace">
+    <rect x="30" y="46" width="240" height="210" rx="10" fill="#f0faf3" stroke="#0a8a3a" stroke-width="1.5"/>
+    <rect x="30" y="46" width="4" height="210" fill="#0a8a3a"/>
+    <rect x="46" y="58" width="210" height="24" rx="7" fill="#0a8a3a"/>
+    <text x="151" y="74" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">IN STOCK</text>
+    <text x="48" y="102" font-size="10" font-weight="700" fill="#b2622e">HKG.AS3.Pro.TINY</text>
+    <text x="48" y="118" font-size="9" fill="#5b6572">🇭🇰 Hong Kong · EPYC 7003</text>
+    <text x="48" y="142" font-size="13" font-weight="700" fill="#0b62d6">$ 39.90 <tspan font-size="9" fill="#5b6572">USD /mo</tspan></text>
+    <line x1="48" y1="158" x2="252" y2="158" stroke="#cfe6d6"/>
+    <text x="48" y="176" font-size="9.5" fill="#98a2ae">▤ 1 vCPU · 1 GB · CN2 GIA</text>
+    <rect x="46" y="192" width="90" height="26" rx="7" fill="#0a8a3a"/>
+    <text x="91" y="209" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">Buy now ▸</text>
+    <text x="146" y="209" font-size="9.5" fill="#0a8a3a" font-weight="700">in stock · 26m</text>
+  </g>
+  <!-- OUT -->
+  <text x="400" y="34" font-size="12" font-weight="700" fill="#9c4a4a">OUT — compact, no footer</text>
+  <g font-family="Menlo,monospace">
+    <rect x="400" y="46" width="240" height="150" rx="10" fill="#fff" stroke="#e3e7ec"/>
+    <rect x="400" y="46" width="4" height="150" fill="#cf8d8d"/>
+    <rect x="416" y="58" width="210" height="24" rx="7" fill="#f6eeee" stroke="#e6cdcd"/>
+    <text x="521" y="74" font-size="11" font-weight="800" fill="#9c4a4a" text-anchor="middle">OUT OF STOCK</text>
+    <text x="418" y="102" font-size="10" font-weight="700" fill="#b2622e">LAX.AS3.Pro.TINY <tspan font-size="8" fill="#0b62d6">Popular</tspan></text>
+    <text x="418" y="126" font-size="13" font-weight="700" fill="#0b62d6">$ 10.90 <tspan font-size="9" fill="#5b6572">USD /mo</tspan></text>
+    <line x1="418" y1="142" x2="622" y2="142" stroke="#e3e7ec"/>
+    <text x="418" y="160" font-size="9.5" fill="#98a2ae">▤ 1 vCPU · 1 GB · 10 Gbps</text>
+  </g>
+  <text x="400" y="222" font-size="10" fill="#5b6572">no “checked Xs ago”, no dead footer row —</text>
+  <text x="400" y="238" font-size="10" fill="#5b6572">page-level freshness covers every card</text>
+  <!-- CHECKING -->
+  <text x="770" y="34" font-size="12" font-weight="700" fill="#5b6572">CHECKING — neutral, transient</text>
+  <g font-family="Menlo,monospace">
+    <rect x="770" y="46" width="240" height="150" rx="10" fill="#fff" stroke="#e3e7ec"/>
+    <rect x="770" y="46" width="4" height="150" fill="#98a2ae"/>
+    <rect x="786" y="58" width="210" height="24" rx="7" fill="#f6f8fa" stroke="#98a2ae" stroke-dasharray="4 3"/>
+    <text x="891" y="74" font-size="11" font-weight="800" fill="#5b6572" text-anchor="middle">CHECKING…</text>
+    <text x="788" y="102" font-size="10" font-weight="700" fill="#b2622e">LAX.AN5.Pro.MEDIUM</text>
+    <text x="788" y="126" font-size="13" font-weight="700" fill="#0b62d6">$ 289.90 <tspan font-size="9" fill="#5b6572">USD /mo</tspan></text>
+    <line x1="788" y1="142" x2="992" y2="142" stroke="#e3e7ec"/>
+    <text x="788" y="160" font-size="9.5" fill="#98a2ae">▤ 8 vCPU · 16 GB · 10 Gbps</text>
+  </g>
+  <text x="770" y="222" font-size="10" fill="#5b6572">grey dashed pill + grey edge — no amber border,</text>
+  <text x="770" y="238" font-size="10" fill="#5b6572">no red “read error” copy; covers unknown too</text>
+</svg>
+</div>
+<figcaption>The three card variants. OUT and CHECKING cards are intentionally shorter than IN cards — height itself becomes hierarchy.</figcaption>
+</figure>
+
+<h2 id="states">4 · All states</h2>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+  </defs>
+  <text x="30" y="34" font-size="12.5" font-weight="700" fill="#111418">PAGE-LEVEL STATES</text>
+  <g font-size="11.5" font-weight="700" text-anchor="middle" fill="#111418">
+    <rect x="30" y="60" width="120" height="42" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/><text x="90" y="86">LOADING</text>
+    <rect x="240" y="60" width="120" height="42" rx="10" fill="#e7f5ec" stroke="#0a8a3a"/><text x="300" y="86">FRESH</text>
+    <rect x="460" y="60" width="120" height="42" rx="10" fill="#fdf6e7" stroke="#b26a00"/><text x="520" y="86">STALE</text>
+    <rect x="30" y="190" width="160" height="42" rx="10" fill="#f6f8fa" stroke="#c9d2dc" stroke-dasharray="5 4"/><text x="110" y="216">WARMING UP</text>
+  </g>
+  <g font-size="9.5" fill="#5b6572">
+    <line x1="150" y1="81" x2="238" y2="81" stroke="#5b6572" stroke-width="1.6" marker-end="url(#ma)"/>
+    <text x="194" y="74" text-anchor="middle">GET ok + snapshot</text>
+    <line x1="360" y1="74" x2="458" y2="74" stroke="#b26a00" stroke-width="1.6" marker-end="url(#ma)"/>
+    <text x="409" y="66" text-anchor="middle" fill="#b26a00">age &gt; 5 min</text>
+    <line x1="458" y1="94" x2="360" y2="94" stroke="#0a8a3a" stroke-width="1.6" marker-end="url(#ma)"/>
+    <text x="409" y="110" text-anchor="middle" fill="#0a8a3a">newer push seen</text>
+    <line x1="90" y1="102" x2="102" y2="188" stroke="#5b6572" stroke-width="1.6" marker-end="url(#ma)"/>
+    <text x="66" y="150">GET ok ·</text>
+    <text x="60" y="163">no snapshot yet</text>
+    <line x1="190" y1="204" x2="292" y2="104" stroke="#5b6572" stroke-width="1.6" marker-end="url(#ma)"/>
+    <text x="290" y="170">first push lands (≤ 30 s poll)</text>
+    <text x="30" y="262" font-size="10" fill="#5b6572">poll failure → keep the last rendered board; the age keeps ruling (it simply keeps growing toward STALE). No error flash.</text>
+  </g>
+  <text x="700" y="34" font-size="12.5" font-weight="700" fill="#111418">PLAN-LEVEL STATES</text>
+  <g font-size="11.5" font-weight="700" text-anchor="middle" fill="#111418">
+    <rect x="700" y="60" width="110" height="42" rx="10" fill="#f6eeee" stroke="#d8b4b4"/><text x="755" y="86" fill="#9c4a4a">OUT</text>
+    <rect x="930" y="60" width="110" height="42" rx="10" fill="#e7f5ec" stroke="#0a8a3a"/><text x="985" y="86" fill="#0a8a3a">IN</text>
+    <rect x="810" y="180" width="130" height="42" rx="10" fill="#f6f8fa" stroke="#98a2ae" stroke-dasharray="5 4"/><text x="875" y="206" fill="#5b6572">CHECKING</text>
+  </g>
+  <g font-size="9.5" fill="#5b6572">
+    <line x1="810" y1="72" x2="928" y2="72" stroke="#0a8a3a" stroke-width="1.6" marker-end="url(#ma)"/>
+    <text x="869" y="64" text-anchor="middle" fill="#0a8a3a">restock (card turns hero, FLIP to top)</text>
+    <line x1="928" y1="94" x2="810" y2="94" stroke="#5b6572" stroke-width="1.6" marker-end="url(#ma)"/>
+    <text x="869" y="110" text-anchor="middle">sold out (back to the wall)</text>
+    <line x1="790" y1="102" x2="840" y2="178" stroke="#98a2ae" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ma)"/>
+    <line x1="950" y1="102" x2="905" y2="178" stroke="#98a2ae" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ma)"/>
+    <text x="875" y="248" text-anchor="middle">transient mid-poll · snapshot “unknown” also renders as CHECKING (never red)</text>
+  </g>
+</svg>
+</div>
+<figcaption>State machines. Every state below has explicit copy and visual treatment — nothing renders as “broken”.</figcaption>
+</figure>
+
+<div class="tblwrap"><table>
+  <tr><th>State</th><th>Trigger</th><th>Visual</th><th>Copy</th></tr>
+  <tr><td>Loading</td><td>First paint, fetch in flight</td><td>Sticky zone + stats skeleton (empty values “—”); no spinner theatrics</td><td>pill: <code>updated —</code></td></tr>
+  <tr><td>Warming up</td><td>Server has never received a push (fresh deploy)</td><td>Dashed empty block where the board would be; freshness pill hidden</td><td>“The board is warming up — waiting for the first snapshot from the watcher.”</td></tr>
+  <tr><td>Fresh</td><td>age ≤ 2 min</td><td>Green pill dot; board full-color</td><td>“updated 38s ago”</td></tr>
+  <tr><td>Aging</td><td>2 min &lt; age ≤ 5 min</td><td>Pill turns amber; no banner, no dim</td><td>“updated 3m 10s ago”</td></tr>
+  <tr><td><span class="warn">Stale</span></td><td>age &gt; 5 min</td><td>Sticky ⚠ banner under header; board dims to 55% / desaturates; pill pulses (unless reduced motion)</td><td>“Data may be stale — watcher offline · last update 8m ago”</td></tr>
+  <tr><td>Poll failure</td><td><code>GET /api/state</code> errors</td><td>Keep last rendered board; age keeps ticking (naturally escalates to Stale)</td><td>no error UI of its own</td></tr>
+  <tr><td>Plan <span class="in">IN</span></td><td><code>status:"in"</code></td><td>Green edge + tinted card + white-on-green pill; card lifted into “In stock now”; FLIP move on transition</td><td>pill “IN STOCK” · footer “Buy now ▸” + “in stock · 26m”</td></tr>
+  <tr><td>Plan <span class="out">OUT</span></td><td><code>status:"out"</code></td><td>Muted red-grey edge, calm pill, <em>no footer</em> (shorter card)</td><td>pill “Out of Stock”</td></tr>
+  <tr><td>Plan checking</td><td><code>status:"checking"</code> or <code>"unknown"</code></td><td>Neutral grey dashed pill + grey edge — no amber/red anywhere (PRD D5)</td><td>pill “Checking…”</td></tr>
+  <tr><td>Nothing in stock</td><td>in-count = 0</td><td>Hero pill muted (<code>in0</code>); IN section shows a quiet dashed empty note</td><td>“Nothing in stock right now — the board refreshes about every minute.”</td></tr>
+  <tr><td>Everything in stock</td><td>waiting = 0</td><td>Waiting section shows the empty note; wall collapses</td><td>“All watched plans are in stock right now.”</td></tr>
+  <tr><td>Family all-IN / empty</td><td>All of a family's plans are IN, or a family has no plans in the snapshot</td><td>Gen group omitted from the wall (its cards live in the IN section); DC bar remains as a landmark with “N in stock ↑”. A family absent from the snapshot renders nothing — never a placeholder</td><td>DC count: “10 watched · 1 in stock ↑”</td></tr>
+</table></div>
+
+<h2 id="fresh">5 · Freshness model (summary)</h2>
+<ul>
+  <li>One source of truth: the server's <code>receivedAt</code> (time it accepted the last push). The page computes <code>age = now − receivedAt</code> locally, re-rendering the label every 1 s and re-fetching <code>GET /api/state</code> every 30 s.</li>
+  <li>Thresholds: <strong>fresh ≤ 2 min</strong> (green) · <strong>aging 2–5 min</strong> (amber pill only) · <strong>stale &gt; 5 min</strong> (banner + dim + pulse) — matching PRD G3's 5-minute contract, with the amber tier as an early honest signal (~2 push cycles).</li>
+  <li>Unlike the local panel, freshness is <em>never</em> derived from connection liveness — a healthy page connection with old data must still read as old (consultant finding: the panel's 5 s SSE-based stale logic must not be reused as-is).</li>
+</ul>
+
+<h2 id="responsive">6 · Responsive behavior</h2>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 330" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <g font-size="10" fill="#5b6572">
+    <!-- 320 -->
+    <rect x="40" y="50" width="110" height="220" rx="10" fill="#fff" stroke="#c9d2dc" stroke-width="1.5"/>
+    <rect x="48" y="58" width="94" height="18" rx="5" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <rect x="48" y="82" width="94" height="52" rx="6" fill="#e7f5ec" stroke="#0a8a3a"/>
+    <rect x="48" y="140" width="94" height="52" rx="6" fill="#fff" stroke="#e3e7ec"/>
+    <rect x="48" y="198" width="94" height="52" rx="6" fill="#fff" stroke="#e3e7ec"/>
+    <text x="95" y="292" text-anchor="middle" font-weight="700" fill="#111418">320 — 1 column</text>
+    <text x="95" y="308" text-anchor="middle">jump chips scroll</text>
+    <!-- 390 -->
+    <rect x="210" y="50" width="134" height="220" rx="10" fill="#fff" stroke="#c9d2dc" stroke-width="1.5"/>
+    <rect x="218" y="58" width="118" height="18" rx="5" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <rect x="218" y="82" width="56" height="46" rx="6" fill="#e7f5ec" stroke="#0a8a3a"/>
+    <rect x="280" y="82" width="56" height="46" rx="6" fill="#fff" stroke="#e3e7ec"/>
+    <rect x="218" y="134" width="56" height="46" rx="6" fill="#fff" stroke="#e3e7ec"/>
+    <rect x="280" y="134" width="56" height="46" rx="6" fill="#fff" stroke="#e3e7ec"/>
+    <rect x="218" y="186" width="56" height="46" rx="6" fill="#fff" stroke="#e3e7ec"/>
+    <rect x="280" y="186" width="56" height="46" rx="6" fill="#fff" stroke="#e3e7ec"/>
+    <text x="277" y="292" text-anchor="middle" font-weight="700" fill="#111418">390 — 2 columns</text>
+    <text x="277" y="308" text-anchor="middle">wall min 170px kicks in</text>
+    <!-- 768 -->
+    <rect x="410" y="50" width="270" height="220" rx="10" fill="#fff" stroke="#c9d2dc" stroke-width="1.5"/>
+    <rect x="418" y="58" width="254" height="18" rx="5" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <g fill="#fff" stroke="#e3e7ec">
+      <rect x="418" y="82" width="59" height="46" rx="6" fill="#e7f5ec" stroke="#0a8a3a"/>
+      <rect x="483" y="82" width="59" height="46" rx="6"/><rect x="548" y="82" width="59" height="46" rx="6"/><rect x="613" y="82" width="59" height="46" rx="6"/>
+      <rect x="418" y="134" width="59" height="46" rx="6"/><rect x="483" y="134" width="59" height="46" rx="6"/><rect x="548" y="134" width="59" height="46" rx="6"/><rect x="613" y="134" width="59" height="46" rx="6"/>
+      <rect x="418" y="186" width="59" height="46" rx="6"/><rect x="483" y="186" width="59" height="46" rx="6"/><rect x="548" y="186" width="59" height="46" rx="6"/><rect x="613" y="186" width="59" height="46" rx="6"/>
+    </g>
+    <text x="545" y="292" text-anchor="middle" font-weight="700" fill="#111418">768 — 4 columns</text>
+    <text x="545" y="308" text-anchor="middle">auto-fill, no breakpoint CSS</text>
+    <!-- 1440 -->
+    <rect x="740" y="50" width="350" height="220" rx="10" fill="#fff" stroke="#c9d2dc" stroke-width="1.5"/>
+    <rect x="768" y="58" width="294" height="18" rx="5" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <g fill="#fff" stroke="#e3e7ec">
+      <rect x="768" y="82" width="43" height="46" rx="6" fill="#e7f5ec" stroke="#0a8a3a"/>
+      <rect x="819" y="82" width="43" height="46" rx="6"/><rect x="870" y="82" width="43" height="46" rx="6"/><rect x="921" y="82" width="43" height="46" rx="6"/><rect x="972" y="82" width="43" height="46" rx="6"/><rect x="1019" y="82" width="43" height="46" rx="6"/>
+      <rect x="768" y="134" width="43" height="46" rx="6"/><rect x="819" y="134" width="43" height="46" rx="6"/><rect x="870" y="134" width="43" height="46" rx="6"/><rect x="921" y="134" width="43" height="46" rx="6"/><rect x="972" y="134" width="43" height="46" rx="6"/><rect x="1019" y="134" width="43" height="46" rx="6"/>
+    </g>
+    <line x1="740" y1="200" x2="1090" y2="200" stroke="#e3e7ec" stroke-dasharray="4 4"/>
+    <text x="915" y="222" text-anchor="middle">shell capped at 1180px, centered</text>
+    <text x="915" y="292" text-anchor="middle" font-weight="700" fill="#111418">1440 — 6 columns</text>
+    <text x="915" y="308" text-anchor="middle">grid-paper bg fills the margins</text>
+  </g>
+</svg>
+</div>
+<figcaption>One fluid grid, no media-query breakpoints for columns: <code>repeat(auto-fill, minmax(min(100%,170px),1fr))</code> for the wall, min 240px for the IN hero grid.</figcaption>
+</figure>
+
+<div class="tblwrap"><table>
+  <tr><th>Width</th><th>Wall columns</th><th>Notes</th></tr>
+  <tr><td>320</td><td>1</td><td>Everything stacks; header wraps (pill drops under brand); jump chips + any wide content scroll horizontally <em>inside their own containers</em>; zero page-level horizontal overflow</td></tr>
+  <tr><td>390</td><td>2</td><td>min card 170px (panel used 210 → public lowered so phones get a 2-up wall; ~37 cards ≈ 3 screens instead of 6)</td></tr>
+  <tr><td>768</td><td>4</td><td>DC bar and gen chips sit inline; sticky zone height shrinks to one row</td></tr>
+  <tr><td>1024</td><td>5</td><td>—</td></tr>
+  <tr><td>1440</td><td>6</td><td>Shell capped at 1180px, centered on the grid-paper background</td></tr>
+</table></div>
+
+<h2 id="a11y">7 · Accessibility</h2>
+<ul>
+  <li><strong>Contrast</strong> — light background, near-black ink (existing token pairs all ≥ 4.5:1 for body text): <code>--ink</code> on <code>--bg</code>, <code>--ok-ink</code> on <code>--ok-soft</code>, <code>--warn-ink</code> on <code>--warn-soft</code>, white on <code>--ok</code> for pills/buttons (large/bold text). The dimmed stale board is deliberately low-contrast — the readable truth moves to the banner, which stays at full contrast.</li>
+  <li><strong>Live regions</strong> — freshness pill and stale banner carry <code>role="status" aria-live="polite"</code>; only the pill's <em>state class</em> changes are announced-worthy — the per-second label tick must NOT re-announce (update text via <code>textContent</code> on the same node; screen readers treat it as one region, and the banner is the loud signal).</li>
+  <li><strong>Keyboard</strong> — tab order: jump chips → Buy links → footer links. Cards are <em>not</em> tabbable (unlike the panel's <code>tabindex="0"</code> cards) — the only interactive element per card is the Buy link, keeping the tab path across 37 cards short. All interactive elements use the shared <code>:focus-visible</code> outline (2px blue, offset 2px).</li>
+  <li><strong>Reduced motion</strong> — <code>prefers-reduced-motion: reduce</code> disables: FLIP card promotion, hover lift, stale-pill pulse, smooth anchor scrolling. State changes remain fully legible through color + copy.</li>
+  <li><strong>Semantics</strong> — <code>header</code> / <code>nav aria-label="Jump to datacenter"</code> / <code>section aria-labelledby</code> per zone / <code>footer</code>; DC groups are <code>section</code>s with <code>aria-label</code>; status pills are text (not color-only) — every state has words.</li>
+  <li><strong>Touch</strong> — Buy buttons and jump chips ≥ 40px effective hit area; buy links open in a new tab with <code>rel="noopener"</code>.</li>
+</ul>
+
+<h2 id="removed">8 · Removed vs the local panel — and why</h2>
+<div class="tblwrap"><table>
+  <tr><th>Panel element</th><th>Public board</th><th>Why</th></tr>
+  <tr><td>Tabs (History · Health · Watchlist)</td><td>Removed</td><td>Operator internals (PRD out-of-scope); History exposes timing patterns, Health exposes Chrome/backoff/Telegram state</td></tr>
+  <tr><td>Alarm zone, alarm banner, Silence, card pulse</td><td>Removed</td><td>PRD D5: visitors get information, not alarms; alerting stays the operator's Telegram</td></tr>
+  <tr><td>Audio + Notification API + mute button</td><td>Removed (module never loaded)</td><td>Same; also avoids permission prompts on a shared link</td></tr>
+  <tr><td>Blind-watcher banner</td><td>Removed — folded into the single stale banner</td><td>“Blind” is operator diagnostics; the public only needs “this data is old”</td></tr>
+  <tr><td>SSE connection lamp + watcher lamp + uptime</td><td>Replaced by ONE freshness pill</td><td>Connection liveness ≠ data freshness; watcher status/uptime is an internal leak (consultants: strip <code>watcher</code> from the push)</td></tr>
+  <tr><td>Remove-family buttons / every POST wrapper</td><td>Removed</td><td>G4 read-only audit: the public JS bundle contains no mutating calls at all — separate entry files, not runtime flags</td></tr>
+  <tr><td>Per-card “checked Xs ago”</td><td>Removed</td><td>Per-plan freshness is operator detail; one page-level age is more honest and less noisy</td></tr>
+  <tr><td>“Free Setup” + “vCPU · RAM — read at runtime” placeholder</td><td>Removed; specs render only when the snapshot has real fields</td><td>No pseudo-content that reads as broken (standing rule)</td></tr>
+  <tr><td><code>noindex,nofollow</code> + “localhost · private” copy</td><td>Removed / rewritten</td><td>This page is meant to be found and shared</td></tr>
+  <tr><td>Waiting-first section order</td><td>Swapped: IN first</td><td>The operator watches what's missing; a stranger asks what's buyable</td></tr>
+</table></div>
+
+<h2 id="inventory">9 · Component inventory</h2>
+<div class="tblwrap"><table>
+  <tr><th>Component</th><th>Source</th><th>Public delta</th></tr>
+  <tr><td>Sticky zone (header + stale banner)</td><td><strong>New</strong> wrapper</td><td>Pins both together; board dims beneath it, zone stays crisp</td></tr>
+  <tr><td>Header brand block</td><td>Reused (<code>header.app</code>)</td><td>Public copy; no lamps except the freshness pill</td></tr>
+  <tr><td>Freshness pill</td><td><strong>New</strong> (styled on <code>.lamp</code>)</td><td>3 states (fresh/aging/stale) driven by <code>receivedAt</code> age</td></tr>
+  <tr><td>Stale banner</td><td>Reused (<code>#staleBanner</code>)</td><td>Retargeted: data age &gt; 5 min (was: SSE link down &gt; 5 s); new copy</td></tr>
+  <tr><td>Stats strip + stat-hero</td><td>Reused</td><td>Counts from the pushed snapshot; breakdown = per-location only</td></tr>
+  <tr><td>Jump chips</td><td><strong>New</strong> (styled on tab pills)</td><td>Anchor links to <code>#dc-*</code>; horizontal scroll on narrow screens</td></tr>
+  <tr><td>Explainer note</td><td>Reused (<code>.prem-note</code>)</td><td>Copy → what the board is + cadence + buy-link note</td></tr>
+  <tr><td>DC bar / DC card</td><td>Reused</td><td>Badge is provider-aware: <code>DMIT · Premium</code> / <code>qq.pw · WHMCS</code>; count gains “N in stock ↑”</td></tr>
+  <tr><td>Generation card (EPYC chip)</td><td>Reused</td><td>Chip text data-driven (<code>AMD EPYC</code> / <code>VDS</code>)</td></tr>
+  <tr><td>Card grid</td><td>Reused</td><td>Wall min 170px (was 210); IN hero grid min 240px</td></tr>
+  <tr><td>Plan card</td><td>Reused, trimmed</td><td>+ context line (IN only) · − placeholder lines · − per-card freshness · footer only on IN · <code>s-checking</code>/<code>s-unknown</code> neutral grey</td></tr>
+  <tr><td>Status pills</td><td>Reused (<code>.instockpill/.oos/.unk</code>)</td><td><code>.unk</code> re-texted “Checking…”; no warn tints</td></tr>
+  <tr><td>Buy button</td><td>Reused (<code>.buy</code>)</td><td>Unchanged; <code>target="_blank" rel="noopener"</code></td></tr>
+  <tr><td>Empty states</td><td>Reused (<code>.empty</code>)</td><td>New public copy incl. “warming up” first-deploy state</td></tr>
+  <tr><td>Footer</td><td><strong>New</strong></td><td>How-it-works · disclaimer · repo link</td></tr>
+</table></div>
+
+<h2 id="notes">10 · Implementation notes for Frontend (interaction contract)</h2>
+<div class="tblwrap"><table>
+  <tr><th>Topic</th><th>Spec</th></tr>
+  <tr><td>Entry files</td><td>Separate public page + script (e.g. <code>server/public/index.html</code> + <code>board.js</code>), reusing <code>tokens.css</code> (trimmed copy) and the pure helpers (<code>esc</code>, <code>fmtAgo</code>, card HTML builder). Never import <code>alarm.js</code>, <code>api.js</code> POST wrappers, or tab logic.</td></tr>
+  <tr><td>Data</td><td><code>GET /api/state</code> → <code>{ ...state, receivedAt }</code>; poll every 30 s (light jitter); re-render only when <code>receivedAt</code> changes; FLIP animation on section moves as in the panel.</td></tr>
+  <tr><td>Freshness</td><td>Age label ticks every 1 s from <code>receivedAt</code>; thresholds 120 s (amber) / 300 s (banner+dim). Never keyed off fetch success or SSE.</td></tr>
+  <tr><td>Status mapping</td><td><code>unknown → checking</code> at render time; sections decided by <code>in</code> vs not-in only (as the panel does).</td></tr>
+  <tr><td>Conditional fields</td><td><code>specs</code>: render slot only if the snapshot carries spec fields (absent today — cards simply omit the row). <code>inSinceMs</code> exists → “in stock · Xm”. “out since” only if a future <code>outSinceMs</code> is pushed — do NOT promise it in copy until then.</td></tr>
+  <tr><td>Ordering</td><td>Wall keeps watchlist/config order (snapshot order); IN section in snapshot encounter order.</td></tr>
+  <tr><td>Head/meta</td><td>Title “VPS Stock Watch — live DMIT Premium availability”; meta description; <strong>no</strong> <code>noindex</code>; 👁️ favicon; <code>color-scheme: light</code>.</td></tr>
+  <tr><td>Verification</td><td>Per house testing rules: Playwright screenshots at 320/390/768/1440 for fresh AND stale states; zero horizontal overflow at all widths; reduced-motion pass.</td></tr>
+</table></div>
+
+<div class="callout">
+  <strong>Reference mockup.</strong> <code>MOCKUP.html</code> in this folder is a clickable, self-contained rendering of this spec with believable sample data (4 datacenters incl. the qq.pw WHMCS family, 2 IN / 1 checking / 34 OUT) and a demo-only toggle that jumps the snapshot age past the 5-minute threshold to preview the stale state. The demo toggle is not part of the shipped page.
+</div>
+
+</main>
+</body>
+</html>

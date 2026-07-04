@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>VPS Stock Watch — live DMIT Premium availability (mockup)</title>
+<link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='13'&gt;👁️&lt;/text&gt;&lt;/svg&gt;">
+<style>
+/* Public board — trimmed skin of public/css/tokens.css. Same tokens, no alarm/tab/operator styles. */
+:root{
+  --bg:oklch(98.6% 0.003 250); --bg-grid:oklch(96% 0.005 250);
+  --surface:oklch(100% 0 0); --surface-2:oklch(97.4% 0.006 250);
+  --ink:oklch(22% 0.02 258); --ink-soft:oklch(46% 0.02 258); --ink-faint:oklch(60% 0.018 258);
+  --line:oklch(90% 0.012 250); --line-strong:oklch(82% 0.018 250);
+  --blue:oklch(54% 0.19 260); --blue-ink:oklch(47% 0.18 262); --blue-soft:oklch(96.5% 0.028 260); --blue-line:oklch(86% 0.07 260);
+  --orange-ink:oklch(58% 0.16 50);
+  --ok:oklch(60% 0.19 150); --ok-ink:oklch(40% 0.13 150); --ok-soft:oklch(94% 0.07 150);
+  --no-ink:oklch(45% 0.18 27); --no-soft:oklch(95.5% 0.04 27);
+  --warn:oklch(76% 0.17 80); --warn-ink:oklch(52% 0.13 70); --warn-soft:oklch(95% 0.07 82);
+  --accent-ink:oklch(40% 0.16 248);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 1px 2px oklch(40% 0.02 258 / .06), 0 8px 24px oklch(40% 0.02 258 / .07);
+  --dur-fast:150ms; --dur:280ms; --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5;
+  background:linear-gradient(var(--bg-grid) 1px,transparent 1px) 0 0/100% 30px,
+    linear-gradient(90deg,var(--bg-grid) 1px,transparent 1px) 0 0/30px 100%,var(--bg);}
+.shell{max-width:1180px;margin:0 auto;padding:clamp(12px,2.4vw,26px)}
+button{font-family:inherit;cursor:pointer}
+a{color:var(--accent-ink)}
+
+/* ---- sticky zone: header + stale banner pin together ---- */
+.sticky-zone{position:sticky;top:0;z-index:40;margin-bottom:12px}
+header.app{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;
+  background:oklch(100% 0 0 / .86);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow)}
+.brandblock .t{font-family:var(--mono);font-weight:800;letter-spacing:-.01em;font-size:16px}
+.brandblock .s{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+.mockchip{display:inline-block;font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);border:1px dashed var(--line-strong);border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:1px}
+.lamp{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:var(--surface);white-space:nowrap}
+.lamp .dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--ink-faint)}
+/* freshness pill — the page's single trust signal, driven by receivedAt age */
+.fresh-pill .dot{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.fresh-pill.aging{background:var(--warn-soft);border-color:oklch(85% 0.1 82);color:var(--warn-ink)}
+.fresh-pill.aging .dot{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+.fresh-pill.stale{background:var(--warn-soft);border-color:oklch(78% 0.12 82);color:var(--warn-ink);font-weight:700}
+.fresh-pill.stale .dot{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft);animation:agepulse 1.6s var(--ease) infinite}
+@keyframes agepulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* stale banner — appears only when data age > 5 min */
+#staleBanner{display:none;margin-top:8px} #staleBanner.show{display:block}
+.stale-inner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:9px;text-align:center;
+  background:var(--warn-soft);border:1px solid oklch(85% 0.1 82);color:var(--warn-ink);border-radius:10px;padding:8px 13px;
+  font-family:var(--mono);font-size:12px;font-weight:600;box-shadow:var(--shadow)}
+.stale-inner .ico{font-size:14px}
+/* dim the board while stale so it can't be mistaken for live data (sticky zone stays crisp) */
+body.stale .stats,body.stale .jump,body.stale .prem-note,body.stale .section,body.stale .foot{
+  opacity:.55;filter:saturate(.4);transition:opacity var(--dur) var(--ease),filter var(--dur) var(--ease)}
+
+/* stats strip */
+.stats{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:10px;font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+.stats b{color:var(--ink);font-size:14px}
+.stats .dim{color:var(--ink-faint);font-size:11px}
+.stat-hero{display:inline-flex;align-items:baseline;gap:6px;font-size:13px;font-weight:700;letter-spacing:.01em;
+  border:1px solid transparent;border-radius:999px;padding:4px 13px}
+.stat-hero b{font-size:21px;letter-spacing:-.01em}
+.stat-hero.in0{background:var(--surface-2);border-color:var(--line);color:var(--ink-soft)}
+.stat-hero.in0 b{color:var(--no-ink)}
+.stat-hero.in1{background:var(--ok-soft);border-color:oklch(82% 0.1 150);color:var(--ok-ink)}
+.stat-hero.in1 b{color:var(--ok-ink)}
+.stat-sub{font-size:12px}.stat-sub b{font-size:14px}
+
+/* datacenter jump chips — scroll landmarks for the ~37-card wall */
+.jump{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+.jchip{font-family:var(--mono);font-size:12px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);
+  border-radius:999px;padding:6px 13px;white-space:nowrap;text-decoration:none;transition:var(--dur-fast)}
+.jchip:hover{border-color:var(--line-strong);color:var(--ink)}
+.jchip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.prem-note{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:14px}
+.prem-note .ico{color:var(--blue-ink);flex:none}
+
+/* datacenter group */
+.dc-group{margin-bottom:20px;scroll-margin-top:120px}
+.dc-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.dc-card{display:flex;align-items:center;gap:11px;border:1px solid var(--blue-line);border-radius:12px;padding:9px 14px;box-shadow:var(--shadow);background:linear-gradient(180deg,var(--blue-soft),var(--surface))}
+.dc-card .flag{font-size:22px;line-height:1;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:4px 7px}
+.dc-city{font-weight:700;font-size:14px}
+.dc-country{font-size:11.5px;color:var(--ink-soft)}
+.rp-badge{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--blue-ink);background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:999px;padding:5px 12px}
+.dc-count{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+
+/* generation card */
+.gen-group{margin:0 0 14px}
+.gen-card{display:inline-flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 13px;margin-bottom:10px;max-width:100%;box-shadow:var(--shadow)}
+.epyc{display:grid;place-items:center;font-family:var(--mono);font-weight:800;font-size:8px;line-height:1.1;letter-spacing:.08em;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:6px;padding:5px 6px;text-align:center}
+.gen-code{font-family:var(--mono);font-weight:800;font-size:13px}
+.gen-series{font-size:11px;color:var(--ink-soft)}
+.gen-count{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-left:4px}
+
+/* plan cards — public variant: min 170px → 2 columns from 390px up */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr));gap:12px}
+.grid-in{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+.pcard{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 14px 13px 17px;box-shadow:var(--shadow);overflow:hidden;
+  transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur)}
+.pcard:hover{transform:translateY(-2px)}
+.pcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line-strong)}
+.pcard.s-out::before{background:oklch(72% 0.13 27)}
+.pcard.s-checking::before{background:var(--ink-faint)}   /* neutral — never amber/red publicly */
+.pcard.s-in::before{background:var(--ok)}
+.pcard.s-in{border-color:var(--ok);box-shadow:0 0 0 2px var(--ok-soft),0 14px 34px oklch(60% 0.18 150 / .2);background:linear-gradient(180deg,var(--ok-soft),var(--surface))}
+.pstatus{margin:-1px 0 11px}
+.oos,.unk,.instockpill{display:block;text-align:center;font-family:var(--mono);font-weight:800;font-size:14px;
+  line-height:1.1;letter-spacing:.045em;text-transform:uppercase;border-radius:9px;padding:9px 8px;white-space:nowrap}
+.oos{color:var(--no-ink);background:var(--no-soft);border:1px solid oklch(89% 0.05 27)}
+.unk{color:var(--ink-soft);background:var(--surface-2);border:1px dashed var(--line-strong)}
+.instockpill{color:#fff;background:linear-gradient(180deg,oklch(64% 0.2 150),var(--ok));border:1px solid var(--ok-ink);box-shadow:0 5px 16px oklch(60% 0.18 150 / .32)}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap}
+.pname{font-family:var(--mono);font-weight:700;font-size:11.5px;color:var(--orange-ink);letter-spacing:-.005em;overflow-wrap:anywhere}
+.popular{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--blue-ink);background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:999px;padding:2px 7px;white-space:nowrap}
+.ctxline{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);margin-top:4px}
+.price{margin-top:6px;font-family:var(--mono);display:flex;align-items:baseline;gap:3px;flex-wrap:wrap}
+.price .cur{font-size:11px;color:var(--ink-soft)}
+.price .num{font-size:15px;font-weight:700;color:var(--blue-ink);letter-spacing:-.01em}
+.price .unit{font-size:10px;color:var(--ink-soft);font-weight:700}
+.price .per{font-size:10px;color:var(--ink-faint);margin-left:2px}
+.specs{display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+.pfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap}
+.since{font-family:var(--mono);font-size:10.5px;color:var(--ok-ink);font-weight:600}
+.buy{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-weight:800;font-size:11.5px;background:var(--ok);color:#fff;border:none;border-radius:8px;padding:8px 12px;text-decoration:none}
+.buy:hover{filter:brightness(1.06)}
+.buy:focus-visible,.demo-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* sections */
+.section{margin-bottom:16px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:0 2px 12px}
+.sec-title{font-family:var(--mono);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+.sec-badge{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--surface);color:var(--ink-soft);white-space:nowrap}
+.empty{text-align:center;color:var(--ink-soft);font-family:var(--mono);font-size:12.5px;padding:22px;border:1px dashed var(--line);border-radius:var(--radius-sm);background:var(--surface-2)}
+
+/* footer */
+.foot{border-top:1px solid var(--line);margin-top:26px;padding-top:16px;color:var(--ink-soft);font-size:12.5px}
+.foot p{margin:.35rem 0;max-width:74ch}
+.foot .tiny{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+
+/* demo-only control (not part of the shipped page) */
+.demo-toggle{position:fixed;right:14px;bottom:14px;z-index:60;font-family:var(--mono);font-size:11px;font-weight:700;
+  color:var(--ink-soft);background:var(--surface);border:1.5px dashed var(--line-strong);border-radius:999px;padding:8px 13px;box-shadow:var(--shadow)}
+.demo-toggle:hover{color:var(--ink);border-color:var(--ink-faint)}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .pcard,.fresh-pill.stale .dot{animation:none!important;transition:none!important}
+  .pcard:hover{transform:none}
+}
+</style>
+</head>
+<body>
+<div class="shell" id="app">
+
+  <div class="sticky-zone">
+    <header class="app">
+      <div class="brandblock">
+        <div class="t">VPS&nbsp;·&nbsp;STOCK&nbsp;WATCH</div>
+        <div class="s">DMIT Premium &amp; watched providers · read-only board<span class="mockchip">static mockup · sample data</span></div>
+      </div>
+      <span class="lamp fresh-pill fresh" id="freshPill" role="status" aria-live="polite"><span class="dot"></span><span id="freshLabel">updated —</span></span>
+    </header>
+    <div id="staleBanner" role="status" aria-live="polite">
+      <div class="stale-inner"><span class="ico" aria-hidden="true">⚠</span><span>Data may be stale — watcher offline · last update <b id="staleAge">—</b></span></div>
+    </div>
+  </div>
+
+  <div class="stats" aria-label="Stock summary">
+    <span class="stat-hero" id="stInWrap"><b id="stIn">0</b> in stock</span>
+    <span class="stat-sub"><b id="stWait">0</b> waiting</span>
+    <span class="stat-sub dim"><b id="stTotal">0</b> watched</span>
+    <span class="dim" id="breakdown"></span>
+  </div>
+
+  <nav class="jump" aria-label="Jump to datacenter" id="jumpNav"></nav>
+
+  <div class="prem-note"><span class="ico" aria-hidden="true">ⓘ</span><span>
+    An independent watcher reads each provider's store every ~60&nbsp;s from a real browser session and publishes a snapshot here.
+    The pill above tells you exactly how old the data is. Buy links go straight to the provider's cart.</span></div>
+
+  <section class="section instock" aria-labelledby="inTitle">
+    <div class="sec-head"><span class="sec-title" id="inTitle" style="color:var(--ok-ink)">✅ In stock now</span>
+      <span class="sec-badge" id="inBadge">—</span></div>
+    <div class="grid grid-in" id="instockGrid"></div>
+    <div class="empty" id="instockEmpty" style="display:none">Nothing in stock right now — the board refreshes about every minute.</div>
+  </section>
+
+  <section class="section waiting" aria-labelledby="waitTitle">
+    <div class="sec-head"><span class="sec-title" id="waitTitle" style="color:var(--ink-soft)">⏳ Waiting for restock</span>
+      <span class="sec-badge" id="waitBadge">—</span></div>
+    <div id="waitingGroups"></div>
+  </section>
+
+  <footer class="foot">
+    <p><b>How this works.</b> A watcher polls the providers' order pages every ~60&nbsp;s and pushes a snapshot to this page.
+      Status can lag by a minute or two — the “updated” pill is the honest age of what you see.</p>
+    <p>Prices are the provider's list prices. “Buy now” opens the provider's cart in a new tab; availability at checkout is up to the provider.</p>
+    <p class="tiny">Not affiliated with DMIT or any listed provider · open source: <a href="https://github.com/cdcupt/dmit-watch">github.com/cdcupt/dmit-watch</a></p>
+  </footer>
+
+</div>
+
+<button class="demo-toggle" id="demoBtn" aria-pressed="false">🧪 demo · simulate stale (&gt;5 min)</button>
+
+<script>
+/* ============ sample snapshot (believable — mirrors the real 37-plan watchlist) ============ */
+const p = (name, price, specs, o = {}) => ({ name, price, specs, per: 'mo', ...o });
+const DCS = [
+  { id: 'lax', flag: '🇺🇸', city: 'Los Angeles', country: 'United States', badge: 'DMIT · Premium', fams: [
+    { label: 'AS3', cpu: 'AMD EPYC 7003 Series', chip: 'AMD<br>EPYC', plans: [
+      p('LAX.AS3.Pro.TINY', '10.90', '1 vCPU · 1 GB · 10 Gbps', { pop: true }),
+      p('LAX.AS3.Pro.POCKET', '16.90', '1 vCPU · 2 GB · 10 Gbps'),
+      p('LAX.AS3.Pro.STARTER', '34.90', '2 vCPU · 2 GB · 10 Gbps'),
+      p('LAX.AS3.Pro.MINI', '62.90', '2 vCPU · 4 GB · 10 Gbps'),
+      p('LAX.AS3.Pro.MICRO', '87.90', '4 vCPU · 8 GB · 10 Gbps'),
+      p('LAX.AS3.Pro.MEDIUM', '199.90', '8 vCPU · 16 GB · 10 Gbps'),
+    ]},
+    { label: 'AN4', cpu: 'AMD EPYC 9004 Series', chip: 'AMD<br>EPYC', plans: [
+      p('LAX.AN4.Pro.MINI', '72.90', '2 vCPU · 4 GB · 10 Gbps'),
+      p('LAX.AN4.Pro.MICRO', '102.90', '4 vCPU · 8 GB · 10 Gbps'),
+      p('LAX.AN4.Pro.MEDIUM', '239.90', '8 vCPU · 16 GB · 10 Gbps'),
+      p('LAX.AN4.Pro.LARGE', '459.90', '16 vCPU · 32 GB · 10 Gbps'),
+      p('LAX.AN4.Pro.GIANT', '929.90', '32 vCPU · 64 GB · 10 Gbps'),
+    ]},
+    { label: 'AN5', cpu: 'AMD EPYC 9005 Series', chip: 'AMD<br>EPYC', plans: [
+      p('LAX.AN5.Pro.MINI', '79.90', '2 vCPU · 4 GB · 10 Gbps'),
+      p('LAX.AN5.Pro.MICRO', '110.90', '4 vCPU · 8 GB · 10 Gbps'),
+      p('LAX.AN5.Pro.MEDIUM', '289.90', '8 vCPU · 16 GB · 10 Gbps', { st: 'checking' }),
+      p('LAX.AN5.Pro.LARGE', '499.90', '16 vCPU · 32 GB · 10 Gbps'),
+      p('LAX.AN5.Pro.GIANT', '1009.90', '32 vCPU · 64 GB · 10 Gbps'),
+    ]},
+  ]},
+  { id: 'hkg', flag: '🇭🇰', city: 'Hong Kong', country: 'China', badge: 'DMIT · Premium', fams: [
+    { label: 'AS3', cpu: 'AMD EPYC 7003 Series', chip: 'AMD<br>EPYC', plans: [
+      p('HKG.AS3.Pro.TINY', '39.90', '1 vCPU · 1 GB · CN2 GIA', { pop: true, st: 'in', since: '26m' }),
+      p('HKG.AS3.Pro.STARTER', '79.90', '2 vCPU · 2 GB · CN2 GIA'),
+      p('HKG.AS3.Pro.MINI', '126.90', '2 vCPU · 4 GB · CN2 GIA'),
+      p('HKG.AS3.Pro.MICRO', '179.90', '4 vCPU · 8 GB · CN2 GIA'),
+      p('HKG.AS3.Pro.MEDIUM', '239.90', '8 vCPU · 16 GB · CN2 GIA'),
+    ]},
+    { label: 'AN5', cpu: 'AMD EPYC 9005 Series', chip: 'AMD<br>EPYC', plans: [
+      p('HKG.AN5.Pro.MINI', '149.90', '2 vCPU · 4 GB · CN2 GIA', { pop: true }),
+      p('HKG.AN5.Pro.MICRO', '199.90', '4 vCPU · 8 GB · CN2 GIA'),
+      p('HKG.AN5.Pro.MEDIUM', '279.90', '8 vCPU · 16 GB · CN2 GIA'),
+      p('HKG.AN5.Pro.LARGE', '359.90', '16 vCPU · 32 GB · CN2 GIA'),
+      p('HKG.AN5.Pro.GIANT', '759.90', '32 vCPU · 64 GB · CN2 GIA'),
+    ]},
+  ]},
+  { id: 'tyo', flag: '🇯🇵', city: 'Tokyo', country: 'Japan', badge: 'DMIT · Premium', fams: [
+    { label: 'AS3', cpu: 'AMD EPYC 7003 Series', chip: 'AMD<br>EPYC', plans: [
+      p('TYO.AS3.Pro.TINY', '21.90', '1 vCPU · 1 GB · 10 Gbps', { pop: true }),
+      p('TYO.AS3.Pro.STARTER', '45.90', '2 vCPU · 2 GB · 10 Gbps', { st: 'in', since: '2h 14m' }),
+      p('TYO.AS3.Pro.MINI', '89.90', '2 vCPU · 4 GB · 10 Gbps'),
+      p('TYO.AS3.Pro.MICRO', '189.90', '4 vCPU · 8 GB · 10 Gbps'),
+      p('TYO.AS3.Pro.MEDIUM', '320.90', '8 vCPU · 16 GB · 10 Gbps'),
+      p('TYO.AS3.Pro.LARGE', '429.90', '16 vCPU · 32 GB · 10 Gbps'),
+      p('TYO.AS3.Pro.GIANT', '829.90', '32 vCPU · 64 GB · 10 Gbps'),
+    ]},
+  ]},
+  { id: 'hnl', flag: '🇺🇸', city: 'Honolulu', country: 'United States · Hawaii', badge: 'qq.pw · WHMCS', fams: [
+    { label: 'VDS', cpu: 'AMD Ryzen 7940HS · residential IP', chip: 'VDS', plans: [
+      p('Dedicate IP VDS Intern', '35.00', 'Ryzen 7940HS · dedicated IP'),
+      p('Dedicate IP VDS Reliable', '35.00', 'Ryzen 7940HS · dedicated IP'),
+      p('Dedicate IP VDS Hardcore', '45.00', 'Ryzen 7940HS · dedicated IP'),
+      p('Dedicate IP VDS Elite', '165.00', 'Ryzen 7940HS · dedicated IP', { per: 'quarter' }),
+    ]},
+  ]},
+];
+
+/* ============ rendering (public variant of the panel's pcardHTML) ============ */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function cardHTML(plan, ctx) {
+  const st = plan.st ?? 'out';
+  const pill = st === 'in' ? '<span class="instockpill">In Stock</span>'
+    : st === 'checking' ? '<span class="unk">Checking…</span>'
+    : '<span class="oos">Out of Stock</span>';
+  const pop = plan.pop ? '<span class="popular">Popular</span>' : '';
+  const ctxLine = ctx ? `<div class="ctxline">${ctx}</div>` : '';
+  const specs = plan.specs ? `<div class="specs"><span aria-hidden="true">▤</span> ${esc(plan.specs)}</div>` : '';
+  const foot = st === 'in'
+    ? `<div class="pfoot"><a class="buy" href="#">Buy now ▸</a><span class="since">in stock · ${esc(plan.since)}</span></div>`
+    : '';
+  return `<article class="pcard s-${st}">
+    <div class="pstatus">${pill}</div>
+    <div class="phead"><span class="pname">${esc(plan.name)}</span>${pop}</div>
+    ${ctxLine}
+    <div class="price"><span class="cur">$</span><span class="num">${esc(plan.price)}</span><span class="unit">USD</span><span class="per">/${esc(plan.per)}</span></div>
+    ${specs}${foot}
+  </article>`;
+}
+
+function render() {
+  let total = 0, inCount = 0;
+  const inCards = [], byLoc = [];
+  const groups = DCS.map((dc) => {
+    let watched = 0, dcIn = 0;
+    const gens = dc.fams.map((f) => {
+      watched += f.plans.length;
+      f.plans.forEach((pl) => { if ((pl.st ?? 'out') === 'in') { dcIn++; inCards.push(cardHTML(pl, `${dc.flag} ${esc(dc.city)} · ${esc(f.cpu)}`)); } });
+      const waiting = f.plans.filter((pl) => (pl.st ?? 'out') !== 'in');
+      if (!waiting.length) return '';
+      return `<div class="gen-group">
+        <div class="gen-card"><span class="epyc" aria-hidden="true">${f.chip}</span><div><div class="gen-code">${esc(f.label)}</div><div class="gen-series">${esc(f.cpu)}</div></div><span class="gen-count">${waiting.length} plans</span></div>
+        <div class="grid">${waiting.map((pl) => cardHTML(pl)).join('')}</div></div>`;
+    }).join('');
+    total += watched; inCount += dcIn;
+    byLoc.push(`${dc.id.toUpperCase()} ${watched}`);
+    const allOut = dc.fams.every((f) => f.plans.every((pl) => (pl.st ?? 'out') === 'out'));
+    const cnt = `${watched} watched${dcIn ? ` · ${dcIn} in stock ↑` : allOut ? ' · all out' : ''}`;
+    return `<section class="dc-group" id="dc-${dc.id}" aria-label="${esc(dc.city)}">
+      <div class="dc-bar"><div class="dc-card"><span class="flag" aria-hidden="true">${dc.flag}</span><div><div class="dc-city">${esc(dc.city)}</div><div class="dc-country">${esc(dc.country)}</div></div></div>
+      <span class="rp-badge">${esc(dc.badge)}</span><span class="dc-count">${cnt}</span></div>${gens}</section>`;
+  }).join('');
+
+  $('#waitingGroups').innerHTML = groups;
+  $('#instockGrid').innerHTML = inCards.join('');
+  $('#instockEmpty').style.display = inCards.length ? 'none' : '';
+  $('#stIn').textContent = inCount;
+  $('#stWait').textContent = total - inCount;
+  $('#stTotal').textContent = total;
+  $('#stInWrap').className = `stat-hero ${inCount > 0 ? 'in1' : 'in0'}`;
+  $('#breakdown').textContent = byLoc.join(' · ');
+  $('#inBadge').textContent = `${inCount} plan${inCount === 1 ? '' : 's'} · buy while they last`;
+  $('#waitBadge').textContent = `${total - inCount} plans · grouped by datacenter`;
+  $('#jumpNav').innerHTML = DCS.map((dc) =>
+    `<a class="jchip" href="#dc-${dc.id}">${dc.flag} ${esc(dc.id.toUpperCase())}</a>`).join('');
+}
+render();
+
+/* ============ freshness state machine (exact thresholds from DESIGN §5) ============ */
+const AGING_MS = 2 * 60 * 1000, STALE_MS = 5 * 60 * 1000;
+const fmtAgo = (ms) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s ago`;
+  return `${Math.floor(m / 60)}h ${m % 60}m ago`;
+};
+let receivedAt = Date.now() - 38 * 1000;   // sample: last push 38 s ago
+function tick() {
+  const age = Date.now() - receivedAt;
+  const stale = age > STALE_MS;
+  $('#freshLabel').textContent = 'updated ' + fmtAgo(age);
+  $('#staleAge').textContent = fmtAgo(age);
+  $('#freshPill').className = 'lamp fresh-pill ' + (stale ? 'stale' : age > AGING_MS ? 'aging' : 'fresh');
+  document.body.classList.toggle('stale', stale);
+  $('#staleBanner').classList.toggle('show', stale);
+}
+setInterval(tick, 1000); tick();
+
+/* demo-only: jump the snapshot age past the 5-min threshold and back */
+let demoStale = false;
+$('#demoBtn').addEventListener('click', () => {
+  demoStale = !demoStale;
+  receivedAt = Date.now() - (demoStale ? (8 * 60 + 20) * 1000 : 38 * 1000);
+  $('#demoBtn').textContent = demoStale ? '🧪 demo · back to fresh' : '🧪 demo · simulate stale (>5 min)';
+  $('#demoBtn').setAttribute('aria-pressed', String(demoStale));
+  tick();
+});
+</script>
+</body>
+</html>
