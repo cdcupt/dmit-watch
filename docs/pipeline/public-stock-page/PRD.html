@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Public VPS Stock Page (vps-stock.daichenlab.com)</title>
+<style>
+  :root{
+    --ink:#111418; --muted:#5b6572; --line:#e3e7ec; --bg:#ffffff; --soft:#f6f8fa;
+    --accent:#0b62d6; --ok:#0a8a3a; --bad:#c62828; --warn:#b26a00; --chip:#eef3fb;
+    --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:980px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:1.7rem;line-height:1.25;margin:.2rem 0 .3rem}
+  h2{font-size:1.22rem;margin:2.4rem 0 .7rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+  h3{font-size:1rem;margin:1.3rem 0 .4rem}
+  p{margin:.5rem 0}
+  .sub{color:var(--muted);font-size:.95rem}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin:.8rem 0 0}
+  .chip{background:var(--chip);color:var(--accent);border-radius:100px;padding:2px 12px;font-size:.8rem;font-weight:600}
+  .chip.gray{background:var(--soft);color:var(--muted)}
+  figure{margin:1rem 0}
+  .svgwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:10px}
+  .svgwrap svg{display:block;max-width:100%;height:auto;min-width:640px;margin:0 auto}
+  figcaption{color:var(--muted);font-size:.85rem;margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:.92rem}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  code{font-family:var(--mono);font-size:.85em;background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .in{color:var(--ok);font-weight:700}.out{color:var(--bad);font-weight:700}.warn{color:var(--warn);font-weight:700}
+  ul{margin:.4rem 0 .4rem 1.2rem;padding:0}
+  li{margin:.3rem 0}
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--soft);border-radius:8px;padding:12px 16px;margin:1rem 0}
+  .callout.red{border-left-color:var(--bad)}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:1.2rem 0}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc ol{margin:.3rem 0 .2rem 1.2rem;padding:0}
+  .toc li{margin:.15rem 0}
+</style>
+</head>
+<body>
+<main>
+
+<h1>PRD — Public VPS Stock Page</h1>
+<p class="sub">Publish the dmit-watch stock board as a public, shareable page at <code>vps-stock.daichenlab.com</code>, served from bwh-prod — while the watcher itself stays on the operator's Mac.</p>
+<div class="meta">
+  <span class="chip">PRD · final</span>
+  <span class="chip gray">feature: public-stock-page</span>
+  <span class="chip gray">repo: cdcupt/dmit-watch (PUBLIC)</span>
+  <span class="chip gray">2026-07-04</span>
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#glance">★ At a glance</a></li>
+    <li><a href="#problem">Problem &amp; context</a></li>
+    <li><a href="#users">Users &amp; use cases</a></li>
+    <li><a href="#goals">Goals &amp; success criteria</a></li>
+    <li><a href="#scope">Scope</a></li>
+    <li><a href="#decisions">Key decisions &amp; constraints</a></li>
+    <li><a href="#contract">Push contract (sketch)</a></li>
+    <li><a href="#risks">Risks &amp; mitigations</a></li>
+    <li><a href="#rollout">Rollout</a></li>
+  </ol>
+</div>
+
+<h2 id="glance">1 · ★ At a glance</h2>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1080 460" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/>
+    </marker>
+    <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/>
+    </marker>
+  </defs>
+
+  <!-- Mac zone -->
+  <rect x="20" y="30" width="330" height="290" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="40" y="58" font-size="15" font-weight="700" fill="#111418">Erik's Mac (unchanged core)</text>
+  <text x="40" y="76" font-size="11" fill="#5b6572">the ONLY place that can read DMIT (Cloudflare)</text>
+
+  <rect x="40" y="92" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="55" y="114" font-size="13" font-weight="600" fill="#111418">Dedicated headless Chrome :9444</text>
+  <text x="55" y="132" font-size="11" fill="#5b6572">CDP-attach · clears Cloudflare · reads cart.php</text>
+
+  <rect x="40" y="156" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="55" y="178" font-size="13" font-weight="600" fill="#111418">Watcher (node, launchd)</text>
+  <text x="55" y="196" font-size="11" fill="#5b6572">detect OUT⇄IN · local panel :7331 · SQLite</text>
+
+  <rect x="40" y="220" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="55" y="242" font-size="13" font-weight="600" fill="#111418">Telegram alerts (stay HERE)</text>
+  <text x="55" y="260" font-size="11" fill="#5b6572">OUT→IN edges → operator's phone · unchanged</text>
+
+  <!-- NEW push -->
+  <line x1="350" y1="182" x2="470" y2="182" stroke="#0b62d6" stroke-width="2.5" marker-end="url(#arrB)"/>
+  <text x="410" y="166" font-size="12" font-weight="700" fill="#0b62d6" text-anchor="middle">NEW: push snapshot</text>
+  <text x="410" y="200" font-size="11" fill="#5b6572" text-anchor="middle">HTTPS POST + bearer token</text>
+  <text x="410" y="215" font-size="11" fill="#5b6572" text-anchor="middle">every poll cycle (~60 s)</text>
+
+  <!-- bwh-prod zone -->
+  <rect x="470" y="30" width="330" height="290" rx="12" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="490" y="58" font-size="15" font-weight="700" fill="#111418">bwh-prod (NEW service)</text>
+  <text x="490" y="76" font-size="11" fill="#5b6572">67.230.179.139 · multi-tenant · shared Caddy edge</text>
+
+  <rect x="490" y="92" width="290" height="60" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="505" y="114" font-size="13" font-weight="600" fill="#111418">vps-stock service (tiny container)</text>
+  <text x="505" y="132" font-size="11" fill="#5b6572">holds latest snapshot (mem + disk) · read-only API</text>
+  <text x="505" y="146" font-size="11" fill="#5b6572">no DB · no Telegram · no mutating endpoints</text>
+
+  <rect x="490" y="164" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="505" y="186" font-size="13" font-weight="600" fill="#111418">Public stock board (static page)</text>
+  <text x="505" y="204" font-size="11" fill="#5b6572">plans · IN/OUT · prices · buy links · freshness</text>
+
+  <rect x="490" y="228" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="505" y="250" font-size="13" font-weight="600" fill="#111418">9relay-caddy edge (existing)</text>
+  <text x="505" y="268" font-size="11" fill="#5b6572">own snippet: vps-stock.daichenlab.com → :810x</text>
+
+  <!-- viewers -->
+  <line x1="800" y1="182" x2="920" y2="182" stroke="#5b6572" stroke-width="2.5" marker-end="url(#arr)"/>
+  <text x="860" y="166" font-size="12" font-weight="700" fill="#5b6572" text-anchor="middle">GET (public)</text>
+
+  <rect x="920" y="122" width="140" height="120" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="990" y="152" font-size="26" text-anchor="middle">🌍</text>
+  <text x="990" y="180" font-size="13" font-weight="600" fill="#111418" text-anchor="middle">Anyone with</text>
+  <text x="990" y="198" font-size="13" font-weight="600" fill="#111418" text-anchor="middle">the link</text>
+  <text x="990" y="220" font-size="11" fill="#5b6572" text-anchor="middle">read-only</text>
+
+  <!-- decisions strip -->
+  <rect x="20" y="345" width="1040" height="95" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="40" y="372" font-size="13" font-weight="700" fill="#111418">Key decisions</text>
+  <text x="40" y="396" font-size="12" fill="#111418">① Watcher NEVER moves (Cloudflare) — the Mac pushes; bwh-prod only displays.</text>
+  <text x="40" y="416" font-size="12" fill="#111418">② Public page = read-only: no alarm, no notifications, no internals.</text>
+  <text x="580" y="396" font-size="12" fill="#111418">③ Server sends NOTHING to Telegram — alerting stays on the Mac.</text>
+  <text x="580" y="416" font-size="12" fill="#111418">④ Staleness is honest: page shows last-update age + offline banner.</text>
+</svg>
+</div>
+<figcaption>The whole feature on one screen: the Mac keeps reading DMIT and alerting; a new authenticated push feeds a tiny read-only service on bwh-prod; anyone can view the board.</figcaption>
+</figure>
+
+<h2 id="problem">2 · Problem &amp; context</h2>
+<p>dmit-watch already answers "is a DMIT Premium plan buyable right now?" — but only on the operator's Mac (<code>localhost:7331</code>). The stock question is interesting to other people (friends, forum/VPS-community members), and today the only way to share it is a screenshot that is stale the moment it's taken.</p>
+<p><strong>Why we can't "just move the website":</strong> the watcher's only trustworthy stock source is DMIT's Cloudflare-protected <code>cart.php</code>. Recon (v3) and production experience prove only a real, locally-running Chrome passes the challenge; reads from datacenter IPs (bwh-prod) get <code>403 Just a moment</code>. The reader must stay on the Mac. What <em>can</em> move is the <em>display</em>: the Mac already computes a complete state snapshot every poll — it can push that to a public host.</p>
+
+<h2 id="users">3 · Users &amp; use cases</h2>
+<div class="tblwrap"><table>
+  <tr><th>User</th><th>Use case</th><th>What they need</th></tr>
+  <tr><td>Link visitor (anyone)</td><td>"Is DMIT HKG/LAX Premium in stock? What plans exist and at what price?"</td><td>Live board: plan, price, specs, <span class="in">IN</span>/<span class="out">OUT</span>, a buy link, and how fresh the data is</td></tr>
+  <tr><td>Erik (operator)</td><td>Share one URL instead of screenshots</td><td>A page that is safe to hand to strangers (no internals, no controls)</td></tr>
+  <tr><td>Erik (operator)</td><td>Keep getting instant restock alerts</td><td>Telegram path untouched, exclusively from the Mac watcher</td></tr>
+</table></div>
+
+<h2 id="goals">4 · Goals &amp; success criteria</h2>
+<ul>
+  <li><strong>G1 — Live public board.</strong> <code>https://vps-stock.daichenlab.com</code> serves the stock board over HTTPS; all watched plans (37 today) appear with status, price, and buy deep link. <em>Criterion: a cold visitor sees current stock without any auth.</em></li>
+  <li><strong>G2 — Freshness within one poll cycle.</strong> A status change on the Mac panel is visible publicly within ~2 poll cycles (≤ ~3 min worst case). <em>Criterion: flip observed locally → public JSON updated on next push.</em></li>
+  <li><strong>G3 — Honest staleness.</strong> The page always shows "updated Xs ago"; if the last push is older than 5 min it shows a clearly visible <span class="warn">data may be stale — watcher offline</span> banner. <em>Criterion: stop the Mac watcher → banner appears; restart → banner clears.</em></li>
+  <li><strong>G4 — Read-only &amp; quiet.</strong> No alarm sound, no browser notifications, no auto-buy, no Telegram from the server, no mutating endpoints exposed. <em>Criterion: audit of the public surface finds GETs only (+ the one authenticated push POST).</em></li>
+  <li><strong>G5 — Multi-tenant-safe deploy.</strong> Own container + own Caddy snippet on bwh-prod; zero disruption to existing tenants. <em>Criterion: all existing daichenlab.com sites still answer after deploy.</em></li>
+  <li><strong>G6 — No secrets in the public repo.</strong> Push token lives only in <code>~/.dmit-watch/config</code> (Mac) and the server's env file. <em>Criterion: secret scan on the PR is clean.</em></li>
+</ul>
+
+<h2 id="scope">5 · Scope</h2>
+<h3>In</h3>
+<ul>
+  <li>New <strong>push publisher</strong> in the Mac watcher: after each poll cycle, POST the current state snapshot to the public service (fire-and-forget, never blocks or breaks watching; disabled unless configured).</li>
+  <li>New tiny <strong>vps-stock service</strong> (this repo, <code>server/</code> or similar): authenticated <code>POST /api/push</code>, public <code>GET /api/state</code>, serves the static board page; keeps the latest snapshot in memory + a file so restarts don't blank the page.</li>
+  <li>New <strong>public board page</strong>: the existing panel's visual language, trimmed to public-safe content — grouped by datacenter/generation, plan cards with <span class="in">IN</span>/<span class="out">OUT</span>/<span class="warn">UNKNOWN→shown as "checking"</span>, price, key specs (as available in the snapshot), buy link, "in stock since / out since" times, page-level freshness + stale banner. Mobile-friendly (320/390/1440). <strong>No alarm, no audio, no notification prompts.</strong></li>
+  <li><strong>Deploy</strong> to bwh-prod per house rules: own container on a free localhost port, own Caddy snippet + one import line, <code>docker restart 9relay-caddy</code>, smoke-test all tenant domains.</li>
+</ul>
+<h3>Out (explicitly)</h3>
+<ul>
+  <li>Moving the watcher/Chrome off the Mac (impossible: Cloudflare).</li>
+  <li>Server-side alerting of any kind (Telegram, email, push) — the server only displays.</li>
+  <li>Operator internals on the public page: watcher-health tab, backoff/blind details, Telegram log, silence/remove controls.</li>
+  <li>Historical charts / transition history page (the snapshot's per-plan "since" timestamps are enough for v1).</li>
+  <li>Accounts, rate-limited APIs for third parties, embeds — v1 is a human-readable page + one JSON GET.</li>
+</ul>
+
+<h2 id="decisions">6 · Key decisions &amp; constraints</h2>
+<div class="tblwrap"><table>
+  <tr><th>#</th><th>Decision</th><th>Rationale</th></tr>
+  <tr><td>D1</td><td><strong>Push, not pull.</strong> The Mac POSTs snapshots to bwh-prod; the server never contacts the Mac or DMIT.</td><td>The Mac isn't publicly reachable; DMIT is Cloudflare-walled from datacenters. Push is the only direction that works.</td></tr>
+  <tr><td>D2</td><td><strong>Reuse the existing snapshot shape.</strong> The push body is the local panel's <code>/api/state</code> JSON (plus a schema version + pushed-at timestamp).</td><td>Zero new state modeling; the board renders what the panel already renders; the local panel stays the source of truth.</td></tr>
+  <tr><td>D3</td><td><strong>Bearer-token auth on push only.</strong> Long random token; config on both ends; pushes without it are rejected 401.</td><td>Only the operator's Mac may write; everyone may read.</td></tr>
+  <tr><td>D4</td><td><strong>No database.</strong> Latest snapshot in memory, mirrored to one JSON file for restart survival.</td><td>It's a cache of one document; a DB adds operational surface for nothing.</td></tr>
+  <tr><td>D5</td><td><strong>Public page is quiet.</strong> No alarm banner/audio/Notification API; UNKNOWN renders as a neutral "checking…" state, never as scary red.</td><td>PM decision (2026-07-04). Public visitors get information, not alarms; alerting stays the operator's private Telegram.</td></tr>
+  <tr><td>D6</td><td><strong>Same public repo.</strong> Server + page live in <code>cdcupt/dmit-watch</code>.</td><td>One project, one paper trail; the repo is already the public home of the tool. Secrets stay in env/config files.</td></tr>
+</table></div>
+
+<h2 id="contract">7 · Push contract (sketch — final in TECH doc)</h2>
+<div class="tblwrap"><table>
+  <tr><th>Aspect</th><th>v1</th></tr>
+  <tr><td>Endpoint</td><td><code>POST https://vps-stock.daichenlab.com/api/push</code></td></tr>
+  <tr><td>Auth</td><td><code>Authorization: Bearer &lt;token&gt;</code> — token in <code>~/.dmit-watch/config</code> (Mac) and server env; 401 otherwise</td></tr>
+  <tr><td>Body</td><td><code>{ v: 1, pushedAt, state: &lt;local /api/state JSON&gt; }</code></td></tr>
+  <tr><td>Cadence</td><td>After each completed poll cycle (~60 s per family, jittered) with light debounce; retry is "next cycle" (no queue)</td></tr>
+  <tr><td>Failure mode</td><td>Push errors are logged locally and NEVER affect watching/alerting; the public page goes stale-honest (G3)</td></tr>
+  <tr><td>Public reads</td><td><code>GET /</code> (board page) · <code>GET /api/state</code> (latest snapshot + <code>receivedAt</code>)</td></tr>
+</table></div>
+
+<h2 id="risks">8 · Risks &amp; mitigations</h2>
+<div class="tblwrap"><table>
+  <tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>
+  <tr><td>Mac asleep/offline → no pushes</td><td>Public data goes stale</td><td>G3 staleness banner with age; page never pretends to be live</td></tr>
+  <tr><td>Mac→bwh-prod reachability flaps (GFW)</td><td>Missed pushes</td><td>Fire-and-forget with next-cycle retry; staleness banner covers gaps; log locally</td></tr>
+  <tr><td>Public page draws hostile traffic</td><td>Load / abuse on bwh-prod</td><td>Static page + one small JSON GET behind Caddy; POST is token-gated + body-size-capped; no fan-out to other tenants</td></tr>
+  <tr><td>Token leak via public repo</td><td>Fake stock pushes</td><td>Token only in env/config (G6); repo ships an example file; secret scan before push</td></tr>
+  <tr><td>Buy links go stale (DMIT deep-link quirks)</td><td>Visitor lands on wrong generation</td><td>Links come from the watchlist (same links the operator uses); known deep-link bug documented on the page footer if needed</td></tr>
+</table></div>
+
+<h2 id="rollout">9 · Rollout</h2>
+<ul>
+  <li>Branch <code>feat/public-stock-page</code>; artifacts under <code>docs/pipeline/public-stock-page/</code>; normal PR at publish.</li>
+  <li>DNS: <code>vps-stock.daichenlab.com → 67.230.179.139</code> — <strong>already created by the PM (A record, DNS-only)</strong>.</li>
+  <li>Deploy: new container behind the existing shared Caddy edge (own snippet + import; restart <code>9relay-caddy</code>; smoke-test every tenant domain afterward per house rules).</li>
+  <li>Success check at Gate 3: live URL green, board matches the local panel, staleness banner proven by stopping/starting the watcher.</li>
+</ul>
+
+</main>
+</body>
+</html>
