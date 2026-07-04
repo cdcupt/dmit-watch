@@ -46,7 +46,7 @@
 <main>
 
 <h1>PRD — Public VPS Stock Page</h1>
-<p class="sub">Publish the dmit-watch stock board as a public, shareable page at <code>vps-stock.daichenlab.com</code>, served from bwh-prod — while the watcher itself stays on the operator's Mac.</p>
+<p class="sub">Publish the dmit-watch stock board as a public, shareable page at <code>vps-stock.daichenlab.com</code>, served from the prod host — while the watcher runs 24/7 on a residential-IP VPS the operator owns. Nothing runs on the operator's Mac.</p>
 <div class="meta">
   <span class="chip">PRD · final</span>
   <span class="chip gray">feature: public-stock-page</span>
@@ -82,33 +82,33 @@
     </marker>
   </defs>
 
-  <!-- Mac zone -->
+  <!-- Watcher-host zone -->
   <rect x="20" y="30" width="330" height="290" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
-  <text x="40" y="58" font-size="15" font-weight="700" fill="#111418">Erik's Mac (unchanged core)</text>
-  <text x="40" y="76" font-size="11" fill="#5b6572">the ONLY place that can read DMIT (Cloudflare)</text>
+  <text x="40" y="58" font-size="15" font-weight="700" fill="#111418">Residential VPS (watcher host)</text>
+  <text x="40" y="76" font-size="11" fill="#5b6572">clears Cloudflare (tested) — datacenter IPs stay walled</text>
 
   <rect x="40" y="92" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
   <text x="55" y="114" font-size="13" font-weight="600" fill="#111418">Dedicated headless Chrome :9444</text>
   <text x="55" y="132" font-size="11" fill="#5b6572">CDP-attach · clears Cloudflare · reads cart.php</text>
 
   <rect x="40" y="156" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
-  <text x="55" y="178" font-size="13" font-weight="600" fill="#111418">Watcher (node, launchd)</text>
+  <text x="55" y="178" font-size="13" font-weight="600" fill="#111418">Watcher (node, systemd)</text>
   <text x="55" y="196" font-size="11" fill="#5b6572">detect OUT⇄IN · local panel :7331 · SQLite</text>
 
   <rect x="40" y="220" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
-  <text x="55" y="242" font-size="13" font-weight="600" fill="#111418">Telegram alerts (stay HERE)</text>
-  <text x="55" y="260" font-size="11" fill="#5b6572">OUT→IN edges → operator's phone · unchanged</text>
+  <text x="55" y="242" font-size="13" font-weight="600" fill="#111418">Telegram: disabled in this deployment</text>
+  <text x="55" y="260" font-size="11" fill="#5b6572">optional for self-hosters · restock edges panel-only</text>
+
+  <!-- prod-host zone -->
+  <rect x="470" y="30" width="330" height="290" rx="12" fill="#eef3fb" stroke="#c9d2dc"/>
 
   <!-- NEW push -->
   <line x1="350" y1="182" x2="470" y2="182" stroke="#0b62d6" stroke-width="2.5" marker-end="url(#arrB)"/>
   <text x="410" y="166" font-size="12" font-weight="700" fill="#0b62d6" text-anchor="middle">NEW: push snapshot</text>
   <text x="410" y="200" font-size="11" fill="#5b6572" text-anchor="middle">HTTPS POST + bearer token</text>
-  <text x="410" y="215" font-size="11" fill="#5b6572" text-anchor="middle">every poll cycle (~60 s)</text>
-
-  <!-- bwh-prod zone -->
-  <rect x="470" y="30" width="330" height="290" rx="12" fill="#eef3fb" stroke="#c9d2dc"/>
-  <text x="490" y="58" font-size="15" font-weight="700" fill="#111418">bwh-prod (NEW service)</text>
-  <text x="490" y="76" font-size="11" fill="#5b6572">67.230.179.139 · multi-tenant · shared Caddy edge</text>
+  <text x="410" y="215" font-size="11" fill="#5b6572" text-anchor="middle">after each family poll · debounced</text>
+  <text x="490" y="58" font-size="15" font-weight="700" fill="#111418">Prod host (NEW service)</text>
+  <text x="490" y="76" font-size="11" fill="#5b6572">datacenter IP · multi-tenant · shared Caddy edge</text>
 
   <rect x="490" y="92" width="290" height="60" rx="8" fill="#fff" stroke="#c9d2dc"/>
   <text x="505" y="114" font-size="13" font-weight="600" fill="#111418">vps-stock service (tiny container)</text>
@@ -120,7 +120,7 @@
   <text x="505" y="204" font-size="11" fill="#5b6572">plans · IN/OUT · prices · buy links · freshness</text>
 
   <rect x="490" y="228" width="290" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
-  <text x="505" y="250" font-size="13" font-weight="600" fill="#111418">9relay-caddy edge (existing)</text>
+  <text x="505" y="250" font-size="13" font-weight="600" fill="#111418">Shared Caddy edge (existing)</text>
   <text x="505" y="268" font-size="11" fill="#5b6572">own snippet: vps-stock.daichenlab.com → :810x</text>
 
   <!-- viewers -->
@@ -134,50 +134,54 @@
   <text x="990" y="220" font-size="11" fill="#5b6572" text-anchor="middle">read-only</text>
 
   <!-- decisions strip -->
-  <rect x="20" y="345" width="1040" height="95" rx="12" fill="#fff" stroke="#e3e7ec"/>
-  <text x="40" y="372" font-size="13" font-weight="700" fill="#111418">Key decisions</text>
-  <text x="40" y="396" font-size="12" fill="#111418">① Watcher NEVER moves (Cloudflare) — the Mac pushes; bwh-prod only displays.</text>
-  <text x="40" y="416" font-size="12" fill="#111418">② Public page = read-only: no alarm, no notifications, no internals.</text>
-  <text x="580" y="396" font-size="12" fill="#111418">③ Server sends NOTHING to Telegram — alerting stays on the Mac.</text>
-  <text x="580" y="416" font-size="12" fill="#111418">④ Staleness is honest: page shows last-update age + offline banner.</text>
+  <rect x="20" y="345" width="1040" height="105" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="40" y="368" font-size="13" font-weight="700" fill="#111418">Key decisions</text>
+  <text x="40" y="390" font-size="12" fill="#111418">① Watcher lives on a residential-IP VPS — residential IP clears Cloudflare (tested); it pushes, the prod host only displays.</text>
+  <text x="40" y="408" font-size="12" fill="#111418">② Public page = read-only: no alarm, no notifications, no internals.</text>
+  <text x="40" y="426" font-size="12" fill="#111418">③ No alerting anywhere — the website IS the product; Telegram stays an optional feature for self-hosters.</text>
+  <text x="40" y="444" font-size="12" fill="#111418">④ Staleness is honest: page shows last-update age + offline banner.</text>
 </svg>
 </div>
-<figcaption>The whole feature on one screen: the Mac keeps reading DMIT and alerting; a new authenticated push feeds a tiny read-only service on bwh-prod; anyone can view the board.</figcaption>
+<figcaption>The whole feature on one screen: a residential-IP VPS reads DMIT (the only host class that clears Cloudflare — tested); an authenticated push feeds a tiny read-only service on the prod host; anyone can view the board. No alerting anywhere — Telegram stays an optional feature for self-hosters.</figcaption>
 </figure>
 
 <h2 id="problem">2 · Problem &amp; context</h2>
-<p>dmit-watch already answers "is a DMIT Premium plan buyable right now?" — but only on the operator's Mac (<code>localhost:7331</code>). The stock question is interesting to other people (friends, forum/VPS-community members), and today the only way to share it is a screenshot that is stale the moment it's taken.</p>
-<p><strong>Why we can't "just move the website":</strong> the watcher's only trustworthy stock source is DMIT's Cloudflare-protected <code>cart.php</code>. Recon (v3) and production experience prove only a real, locally-running Chrome passes the challenge; reads from datacenter IPs (bwh-prod) get <code>403 Just a moment</code>. The reader must stay on the Mac. What <em>can</em> move is the <em>display</em>: the Mac already computes a complete state snapshot every poll — it can push that to a public host.</p>
+<p>dmit-watch already answers "is a DMIT Premium plan buyable right now?" — but only on the operator's private panel (<code>localhost:7331</code>). The stock question is interesting to other people (friends, forum/VPS-community members), and today the only way to share it is a screenshot that is stale the moment it's taken.</p>
+<p><strong>Why the watcher needs a RESIDENTIAL IP:</strong> the watcher's only trustworthy stock source is DMIT's Cloudflare-protected <code>cart.php</code>. A feasibility spike (2026-07-04) tested both host classes with the production reader: from the prod host's <em>datacenter</em> IP every read stays walled ("Just a moment" on every pass); from a <em>residential-IP</em> VPS the operator owns, the first read's 403 challenge auto-cleared in 6.4&nbsp;s with 5/5 plan names parsed, and the next read returned 200 in 0.9&nbsp;s (<code>cf_clearance</code> persists in the Chrome profile). So the two-box split is required: the watcher (node + dedicated headless Chrome) runs on the residential VPS; the prod host only <em>displays</em>. The watcher already computes a complete state snapshot every poll — it pushes that to the public host.</p>
 
 <h2 id="users">3 · Users &amp; use cases</h2>
 <div class="tblwrap"><table>
   <tr><th>User</th><th>Use case</th><th>What they need</th></tr>
   <tr><td>Link visitor (anyone)</td><td>"Is DMIT HKG/LAX Premium in stock? What plans exist and at what price?"</td><td>Live board: plan, price, specs, <span class="in">IN</span>/<span class="out">OUT</span>, a buy link, and how fresh the data is</td></tr>
   <tr><td>Erik (operator)</td><td>Share one URL instead of screenshots</td><td>A page that is safe to hand to strangers (no internals, no controls)</td></tr>
-  <tr><td>Erik (operator)</td><td>Keep getting instant restock alerts</td><td>Telegram path untouched, exclusively from the Mac watcher</td></tr>
+  <tr><td>Erik (operator)</td><td>Nothing to run at home</td><td>Watcher + Chrome hosted 24/7 on the residential VPS under systemd; the Mac's launchd agent is decommissioned at cutover</td></tr>
 </table></div>
 
 <h2 id="goals">4 · Goals &amp; success criteria</h2>
 <ul>
   <li><strong>G1 — Live public board.</strong> <code>https://vps-stock.daichenlab.com</code> serves the stock board over HTTPS; all watched plans (37 today) appear with status, price, and buy deep link. <em>Criterion: a cold visitor sees current stock without any auth.</em></li>
-  <li><strong>G2 — Freshness within one poll cycle.</strong> A status change on the Mac panel is visible publicly within ~2 poll cycles (≤ ~3 min worst case). <em>Criterion: flip observed locally → public JSON updated on next push.</em></li>
-  <li><strong>G3 — Honest staleness.</strong> The page always shows "updated Xs ago"; if the last push is older than 5 min it shows a clearly visible <span class="warn">data may be stale — watcher offline</span> banner. <em>Criterion: stop the Mac watcher → banner appears; restart → banner clears.</em></li>
-  <li><strong>G4 — Read-only &amp; quiet.</strong> No alarm sound, no browser notifications, no auto-buy, no Telegram from the server, no mutating endpoints exposed. <em>Criterion: audit of the public surface finds GETs only (+ the one authenticated push POST).</em></li>
-  <li><strong>G5 — Multi-tenant-safe deploy.</strong> Own container + own Caddy snippet on bwh-prod; zero disruption to existing tenants. <em>Criterion: all existing daichenlab.com sites still answer after deploy.</em></li>
-  <li><strong>G6 — No secrets in the public repo.</strong> Push token lives only in <code>~/.dmit-watch/config</code> (Mac) and the server's env file. <em>Criterion: secret scan on the PR is clean.</em></li>
+  <li><strong>G2 — Freshness within one poll cycle.</strong> A status change on the watcher's panel is visible publicly within ~2 poll cycles (≤ ~3 min worst case). <em>Criterion: flip observed locally → public JSON updated on next push.</em></li>
+  <li><strong>G3 — Honest staleness.</strong> The page always shows "updated Xs ago"; if the last push is older than 5 min it shows a clearly visible <span class="warn">data may be stale — watcher offline</span> banner. <em>Criterion: stop the VPS watcher → banner appears; restart → banner clears.</em></li>
+  <li><strong>G4 — Read-only &amp; quiet: no alerting anywhere in this deployment.</strong> No alarm sound, no browser notifications, no auto-buy, no mutating endpoints exposed — and no Telegram: the watcher runs with no Telegram credentials (no-op notifier; the feature stays optional for self-hosters). <em>Criterion: audit of the public surface finds GETs only (+ the one authenticated push POST); the watcher boot log shows "telegram: disabled (no credentials)".</em></li>
+  <li><strong>G5 — Multi-tenant-safe deploy.</strong> Own container + own Caddy snippet on the prod host; zero disruption to existing tenants. <em>Criterion: all existing daichenlab.com sites still answer after deploy.</em></li>
+  <li><strong>G6 — No secrets in the public repo.</strong> Push token lives only in <code>~/.dmit-watch/config</code> (watcher host) and the server's env file. <em>Criterion: secret scan on the PR is clean.</em></li>
+  <li><strong>G7 — Nothing on the operator's Mac.</strong> The watcher (node + dedicated Chrome) runs entirely on the residential VPS; the Mac's launchd watcher is decommissioned at cutover. <em>Criterion: after cutover the Mac has no dmit-watch launchd agent loaded and the public board stays fresh from the VPS alone.</em></li>
 </ul>
 
 <h2 id="scope">5 · Scope</h2>
 <h3>In</h3>
 <ul>
-  <li>New <strong>push publisher</strong> in the Mac watcher: after each poll cycle, POST the current state snapshot to the public service (fire-and-forget, never blocks or breaks watching; disabled unless configured).</li>
+  <li>New <strong>push publisher</strong> in the watcher: after each poll cycle, POST the current state snapshot to the public service (fire-and-forget, never blocks or breaks watching; disabled unless configured).</li>
+  <li><strong>Watcher deployment on the residential VPS</strong>: repo at <code>/opt/dmit-watch</code>, two systemd units (dedicated headless Chrome + the watcher under a restart policy — the same pair <code>scripts/start.sh</code> + launchd managed on the Mac), config holding only the push settings; the local panel (<code>:7331</code>) stays loopback-only (operator debugging via SSH tunnel).</li>
+  <li><strong>Telegram-optional code change</strong>: absent Telegram credentials no longer abort boot — the watcher starts with a no-op notifier and logs one line ("telegram: disabled (no credentials)"); blind escalations and restock edges become panel-only. The feature stays available to self-hosters who do configure credentials.</li>
+  <li><strong>Decommission runbook</strong> for the Mac launchd agent (run only after the VPS watcher is verified green).</li>
   <li>New tiny <strong>vps-stock service</strong> (this repo, <code>server/</code> or similar): authenticated <code>POST /api/push</code>, public <code>GET /api/state</code>, serves the static board page; keeps the latest snapshot in memory + a file so restarts don't blank the page.</li>
   <li>New <strong>public board page</strong>: the existing panel's visual language, trimmed to public-safe content — grouped by datacenter/generation, plan cards with <span class="in">IN</span>/<span class="out">OUT</span>/<span class="warn">UNKNOWN→shown as "checking"</span>, price, key specs (as available in the snapshot), buy link, "in stock since / out since" times, page-level freshness + stale banner. Mobile-friendly (320/390/1440). <strong>No alarm, no audio, no notification prompts.</strong></li>
-  <li><strong>Deploy</strong> to bwh-prod per house rules: own container on a free localhost port, own Caddy snippet + one import line, <code>docker restart 9relay-caddy</code>, smoke-test all tenant domains.</li>
+  <li><strong>Deploy</strong> to the prod host per house rules: own container on a free localhost port, own Caddy snippet + one import line, restart the shared Caddy edge, smoke-test all tenant domains.</li>
 </ul>
 <h3>Out (explicitly)</h3>
 <ul>
-  <li>Moving the watcher/Chrome off the Mac (impossible: Cloudflare).</li>
+  <li>Telegram / alerting of any kind in our deployment — no credentials are configured anywhere; the code path remains an optional feature for self-hosting users of the public repo. No other alerting is added.</li>
   <li>Server-side alerting of any kind (Telegram, email, push) — the server only displays.</li>
   <li>Operator internals on the public page: watcher-health tab, backoff/blind details, Telegram log, silence/remove controls.</li>
   <li>Historical charts / transition history page (the snapshot's per-plan "since" timestamps are enough for v1).</li>
@@ -187,19 +191,21 @@
 <h2 id="decisions">6 · Key decisions &amp; constraints</h2>
 <div class="tblwrap"><table>
   <tr><th>#</th><th>Decision</th><th>Rationale</th></tr>
-  <tr><td>D1</td><td><strong>Push, not pull.</strong> The Mac POSTs snapshots to bwh-prod; the server never contacts the Mac or DMIT.</td><td>The Mac isn't publicly reachable; DMIT is Cloudflare-walled from datacenters. Push is the only direction that works.</td></tr>
+  <tr><td>D1</td><td><strong>Push, not pull.</strong> The watcher on the residential VPS POSTs snapshots to the prod host; the server never contacts the watcher host or DMIT.</td><td>The watcher host exposes no public surface, and DMIT is Cloudflare-walled from datacenter IPs — pushes originate from the residential VPS; push is the only direction that works.</td></tr>
   <tr><td>D2</td><td><strong>Reuse the existing snapshot shape.</strong> The push body is the local panel's <code>/api/state</code> JSON (plus a schema version + pushed-at timestamp).</td><td>Zero new state modeling; the board renders what the panel already renders; the local panel stays the source of truth.</td></tr>
-  <tr><td>D3</td><td><strong>Bearer-token auth on push only.</strong> Long random token; config on both ends; pushes without it are rejected 401.</td><td>Only the operator's Mac may write; everyone may read.</td></tr>
+  <tr><td>D3</td><td><strong>Bearer-token auth on push only.</strong> Long random token; config on both ends; pushes without it are rejected 401.</td><td>Only the operator's watcher may write; everyone may read.</td></tr>
   <tr><td>D4</td><td><strong>No database.</strong> Latest snapshot in memory, mirrored to one JSON file for restart survival.</td><td>It's a cache of one document; a DB adds operational surface for nothing.</td></tr>
-  <tr><td>D5</td><td><strong>Public page is quiet.</strong> No alarm banner/audio/Notification API; UNKNOWN renders as a neutral "checking…" state, never as scary red.</td><td>PM decision (2026-07-04). Public visitors get information, not alarms; alerting stays the operator's private Telegram.</td></tr>
+  <tr><td>D5</td><td><strong>Public page is quiet.</strong> No alarm banner/audio/Notification API; UNKNOWN renders as a neutral "checking…" state, never as scary red.</td><td>PM decision (2026-07-04). Public visitors get information, not alarms; there is no alerting anywhere in this deployment (see D8) — the website is the product.</td></tr>
   <tr><td>D6</td><td><strong>Same public repo.</strong> Server + page live in <code>cdcupt/dmit-watch</code>.</td><td>One project, one paper trail; the repo is already the public home of the tool. Secrets stay in env/config files.</td></tr>
+  <tr><td>D7</td><td><strong>The watcher hosts on a residential-IP VPS.</strong> Node + dedicated headless Chrome move to a residential-IP VPS the operator owns; nothing runs on the Mac.</td><td>Validated by a feasibility spike with the production reader: on the residential IP the first read's 403 challenge auto-cleared in 6.4&nbsp;s (5/5 plans parsed) and the next read was 200 in 0.9&nbsp;s; the prod host's datacenter IP stays walled ("Just a moment" every pass). The two-box split is empirical, not preference.</td></tr>
+  <tr><td>D8</td><td><strong>Telegram optional-off.</strong> Our deployment configures no Telegram credentials; the watcher boots with a no-op notifier and one log line. The codebase keeps Telegram as an optional feature.</td><td>The public OSS repo has self-hosting users who rely on Telegram; our deployment's product is the website. Blind escalations and restock edges become panel-only. No other alerting is added.</td></tr>
 </table></div>
 
 <h2 id="contract">7 · Push contract (sketch — final in TECH doc)</h2>
 <div class="tblwrap"><table>
   <tr><th>Aspect</th><th>v1</th></tr>
   <tr><td>Endpoint</td><td><code>POST https://vps-stock.daichenlab.com/api/push</code></td></tr>
-  <tr><td>Auth</td><td><code>Authorization: Bearer &lt;token&gt;</code> — token in <code>~/.dmit-watch/config</code> (Mac) and server env; 401 otherwise</td></tr>
+  <tr><td>Auth</td><td><code>Authorization: Bearer &lt;token&gt;</code> — token in <code>~/.dmit-watch/config</code> (watcher host) and server env; 401 otherwise</td></tr>
   <tr><td>Body</td><td><code>{ v: 1, pushedAt, state: &lt;local /api/state JSON&gt; }</code></td></tr>
   <tr><td>Cadence</td><td>After each completed poll cycle (~60 s per family, jittered) with light debounce; retry is "next cycle" (no queue)</td></tr>
   <tr><td>Failure mode</td><td>Push errors are logged locally and NEVER affect watching/alerting; the public page goes stale-honest (G3)</td></tr>
@@ -209,9 +215,11 @@
 <h2 id="risks">8 · Risks &amp; mitigations</h2>
 <div class="tblwrap"><table>
   <tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>
-  <tr><td>Mac asleep/offline → no pushes</td><td>Public data goes stale</td><td>G3 staleness banner with age; page never pretends to be live</td></tr>
-  <tr><td>Mac→bwh-prod reachability flaps (GFW)</td><td>Missed pushes</td><td>Fire-and-forget with next-cycle retry; staleness banner covers gaps; log locally</td></tr>
-  <tr><td>Public page draws hostile traffic</td><td>Load / abuse on bwh-prod</td><td>Static page + one small JSON GET behind Caddy; POST is token-gated + body-size-capped; no fan-out to other tenants</td></tr>
+  <tr><td>Watcher-VPS→prod-host reachability flaps</td><td>Missed pushes</td><td>Fire-and-forget with next-cycle retry; staleness banner covers gaps; log locally</td></tr>
+  <tr><td>The residential VPS also serves as a personal-VPN exit for the operator</td><td>Contention with the operator's other workload</td><td>The watcher must never touch the VPN processes; its footprint is modest (one node process + one headless Chrome on a mostly idle 4&nbsp;vCPU / 4&nbsp;GB box); systemd restart policy is scoped to the watcher's own units</td></tr>
+  <tr><td>Cloudflare tightens on the VPS IP over time</td><td>Reads degrade or go blind</td><td>Spike shows clearance persists in the Chrome profile; the watcher's existing blind-net escalation + the page's staleness banner keep the board honest rather than wrong</td></tr>
+  <tr><td>Single-VPS dependency for freshness</td><td>VPS down → no pushes, board goes stale</td><td>Honest staleness (G3) is the designed failure mode; systemd <code>Restart=on-failure</code> revives the watcher; the board server keeps serving the last snapshot</td></tr>
+  <tr><td>Public page draws hostile traffic</td><td>Load / abuse on the prod host</td><td>Static page + one small JSON GET behind Caddy; POST is token-gated + body-size-capped; no fan-out to other tenants</td></tr>
   <tr><td>Token leak via public repo</td><td>Fake stock pushes</td><td>Token only in env/config (G6); repo ships an example file; secret scan before push</td></tr>
   <tr><td>Buy links go stale (DMIT deep-link quirks)</td><td>Visitor lands on wrong generation</td><td>Links come from the watchlist (same links the operator uses); known deep-link bug documented on the page footer if needed</td></tr>
 </table></div>
@@ -219,9 +227,10 @@
 <h2 id="rollout">9 · Rollout</h2>
 <ul>
   <li>Branch <code>feat/public-stock-page</code>; artifacts under <code>docs/pipeline/public-stock-page/</code>; normal PR at publish.</li>
-  <li>DNS: <code>vps-stock.daichenlab.com → 67.230.179.139</code> — <strong>already created by the PM (A record, DNS-only)</strong>.</li>
-  <li>Deploy: new container behind the existing shared Caddy edge (own snippet + import; restart <code>9relay-caddy</code>; smoke-test every tenant domain afterward per house rules).</li>
-  <li>Success check at Gate 3: live URL green, board matches the local panel, staleness banner proven by stopping/starting the watcher.</li>
+  <li>DNS: <code>vps-stock.daichenlab.com</code> → the prod host's A record — <strong>already created by the PM (DNS-only)</strong>.</li>
+  <li>Deploy: new container behind the existing shared Caddy edge (own snippet + import; restart the edge container; smoke-test every tenant domain afterward per house rules); watcher deployed to the residential VPS under systemd.</li>
+  <li><strong>Cutover:</strong> verify the VPS watcher green first (pushes landing, board fresh) — only then stop and uninstall the Mac launchd agent (<code>bash scripts/install-agent.sh --uninstall</code>, which <code>launchctl bootout</code>s the agent). The Mac runs nothing afterwards (G7).</li>
+  <li>Success check at Gate 3: live URL green, board matches the watcher's local panel, staleness banner proven by stopping/starting the VPS watcher.</li>
 </ul>
 
 </main>
