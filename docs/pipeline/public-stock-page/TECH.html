@@ -1,0 +1,1593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tech Document — Public VPS Stock Page</title>
+<style>
+  :root{
+    --ink:#111418; --muted:#5b6572; --line:#e3e7ec; --bg:#ffffff; --soft:#f6f8fa;
+    --accent:#0b62d6; --ok:#0a8a3a; --bad:#c62828; --warn:#b26a00; --chip:#eef3fb;
+    --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:980px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:1.7rem;line-height:1.25;margin:.2rem 0 .3rem}
+  h2{font-size:1.22rem;margin:2.4rem 0 .7rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+  h3{font-size:1rem;margin:1.3rem 0 .4rem}
+  p{margin:.5rem 0}
+  .sub{color:var(--muted);font-size:.95rem}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin:.8rem 0 0}
+  .chip{background:var(--chip);color:var(--accent);border-radius:100px;padding:2px 12px;font-size:.8rem;font-weight:600}
+  .chip.gray{background:var(--soft);color:var(--muted)}
+  figure{margin:1rem 0}
+  .svgwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:10px}
+  .svgwrap svg{display:block;max-width:100%;height:auto;min-width:640px;margin:0 auto}
+  figcaption{color:var(--muted);font-size:.85rem;margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:.92rem}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  code{font-family:var(--mono);font-size:.85em;background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .in{color:var(--ok);font-weight:700}.out{color:var(--bad);font-weight:700}.warn{color:var(--warn);font-weight:700}
+  ul{margin:.4rem 0 .4rem 1.2rem;padding:0}
+  li{margin:.3rem 0}
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--soft);border-radius:8px;padding:12px 16px;margin:1rem 0}
+  .callout.red{border-left-color:var(--bad)}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:1.2rem 0}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc ol{margin:.3rem 0 .2rem 1.2rem;padding:0}
+  .toc li{margin:.15rem 0}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Tech Document — Public VPS Stock Page</h1>
+<p class="sub">How the read-only stock board at <code>vps-stock.daichenlab.com</code> is built: a Mac-side push publisher, a tiny snapshot server behind the shared Caddy edge, a polling board page — and the test plan that proves every guarantee.</p>
+<div class="meta">
+  <span class="chip">TECH · final</span>
+  <span class="chip gray">feature: public-stock-page</span>
+  <span class="chip gray">repo: cdcupt/dmit-watch (PUBLIC)</span>
+  <span class="chip gray">2026-07-04</span>
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#glance">★ At a glance</a></li>
+    <li><a href="#be-overview">Backend &amp; infrastructure — architecture overview</a></li>
+    <li><a href="#be-publisher">Mac-side publisher — src/publisher.js</a></li>
+    <li><a href="#be-server">Public board server — board-server/</a></li>
+    <li><a href="#be-sequence">Push flow end-to-end</a></li>
+    <li><a href="#be-deploy">Deployment — multi-tenant prod host</a></li>
+    <li><a href="#be-ops">Operational notes</a></li>
+    <li><a href="#fe-arch">Frontend · Client architecture</a></li>
+    <li><a href="#fe-contract">Frontend · Render contract — /api/state → components</a></li>
+    <li><a href="#fe-poll">Frontend · Polling, freshness &amp; the age ticker</a></li>
+    <li><a href="#fe-absent">Frontend · Deliberately absent vs the panel</a></li>
+    <li><a href="#fe-a11y">Frontend · Accessibility &amp; performance</a></li>
+    <li><a href="#qa-overview">Test plan — coverage map</a></li>
+    <li><a href="#qa-unit">Unit tests</a></li>
+    <li><a href="#qa-integration">Integration tests — board-server</a></li>
+    <li><a href="#qa-e2e">E2E — local loop, visual pass, deployed smoke</a></li>
+    <li><a href="#qa-acceptance">Acceptance matrix — PRD goals → checks</a></li>
+    <li><a href="#qa-secrets">Secret hygiene — public-repo checks</a></li>
+  </ol>
+</div>
+
+<h2 id="glance">1 · ★ At a glance</h2>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1180 620" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="glA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="glB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+
+  <!-- DMIT source -->
+  <rect x="20" y="120" width="135" height="130" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="87" y="148" font-size="12" font-weight="700" fill="#111418" text-anchor="middle">DMIT / qq.pw</text>
+  <text x="87" y="168" font-size="9.5" fill="#5b6572" text-anchor="middle">cart.php behind</text>
+  <text x="87" y="182" font-size="9.5" fill="#5b6572" text-anchor="middle">Cloudflare</text>
+  <text x="87" y="206" font-size="8.5" fill="#b26a00" text-anchor="middle">readable ONLY from</text>
+  <text x="87" y="220" font-size="8.5" fill="#b26a00" text-anchor="middle">the Mac's Chrome</text>
+
+  <line x1="155" y1="185" x2="193" y2="185" stroke="#5b6572" stroke-width="1.8" marker-end="url(#glA)"/>
+  <text x="174" y="176" font-size="8.5" fill="#5b6572" text-anchor="middle">reads</text>
+  <text x="174" y="200" font-size="8.5" fill="#5b6572" text-anchor="middle">~60 s</text>
+
+  <!-- Mac zone -->
+  <rect x="195" y="40" width="275" height="350" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="210" y="66" font-size="13" font-weight="700" fill="#111418">Erik's Mac — watcher (launchd)</text>
+  <text x="210" y="83" font-size="9.5" fill="#5b6572">core unchanged · alerts stay here</text>
+
+  <rect x="208" y="94" width="249" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="220" y="114" font-size="11" font-weight="600" fill="#111418">src/watcher.js · src/scheduler.js</text>
+  <text x="220" y="132" font-size="9" fill="#5b6572">Chrome :9444 · OUT⇄IN → 'family' events</text>
+
+  <rect x="208" y="156" width="249" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="220" y="176" font-size="11" font-weight="600" fill="#111418">src/server.js — panel :7331 · Telegram</text>
+  <text x="220" y="194" font-size="9" fill="#5b6572">operator-only — none of it ships publicly</text>
+
+  <rect x="208" y="218" width="249" height="66" rx="8" fill="#fff" stroke="#0b62d6" stroke-width="1.5"/>
+  <text x="220" y="238" font-size="11.5" font-weight="700" fill="#0b62d6">src/publisher.js — NEW</text>
+  <text x="220" y="254" font-size="9" fill="#5b6572">debounce 3 s · in-flight skip · 10 s timeout</text>
+  <text x="220" y="268" font-size="9" fill="#5b6572">strip watcher · lastCheckMs · alarm:false</text>
+
+  <rect x="208" y="294" width="249" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="220" y="312" font-size="10.5" font-weight="600" fill="#111418">src/state.js — +outSinceMs · +provider</text>
+  <text x="220" y="330" font-size="9" fill="#5b6572">src/config.js — loadPushConfig() · OFF by default</text>
+
+  <text x="208" y="372" font-size="9.5" fill="#5b6572">src/index.js composes broadcast → panel + publisher</text>
+
+  <!-- push corridor -->
+  <text x="527" y="192" font-size="11" font-weight="700" fill="#0b62d6" text-anchor="middle">POST /api/push</text>
+  <text x="527" y="208" font-size="9.5" fill="#0b62d6" text-anchor="middle">Bearer token</text>
+  <line x1="470" y1="225" x2="583" y2="225" stroke="#0b62d6" stroke-width="2.4" marker-end="url(#glB)"/>
+  <text x="527" y="245" font-size="8.5" fill="#5b6572" text-anchor="middle" font-family="Menlo,monospace">{v:1, pushedAt, state}</text>
+  <text x="527" y="260" font-size="8.5" fill="#5b6572" text-anchor="middle">fire-and-forget · ~10 s</text>
+
+  <!-- prod zone -->
+  <rect x="585" y="40" width="320" height="350" rx="12" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="600" y="66" font-size="13" font-weight="700" fill="#111418">Prod host — vps-stock container</text>
+  <text x="600" y="83" font-size="9.5" fill="#5b6572">/opt/&lt;app&gt;/ · no DB · no SSE · no Telegram</text>
+
+  <rect x="598" y="94" width="294" height="46" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="610" y="112" font-size="11" font-weight="600" fill="#111418">shared Caddy edge :443</text>
+  <text x="610" y="130" font-size="9" fill="#5b6572">ops/vps-stock.caddy → 127.0.0.1:&lt;port&gt;</text>
+
+  <rect x="598" y="150" width="294" height="54" rx="8" fill="#fff" stroke="#0b62d6" stroke-width="1.5"/>
+  <text x="610" y="168" font-size="11" font-weight="700" fill="#111418">board-server/server.js — node:http, 0 deps</text>
+  <text x="610" y="186" font-size="9" fill="#5b6572">guards: 401 · 400 · 408 · 413 · 422 → accept</text>
+
+  <rect x="598" y="214" width="138" height="60" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="667" y="232" font-size="10.5" font-weight="600" fill="#111418" text-anchor="middle">memory doc</text>
+  <text x="667" y="248" font-size="8.5" fill="#5b6572" text-anchor="middle" font-family="Menlo,monospace">{v, pushedAt,</text>
+  <text x="667" y="262" font-size="8.5" fill="#5b6572" text-anchor="middle" font-family="Menlo,monospace">receivedAt, state}</text>
+  <line x1="736" y1="244" x2="754" y2="244" stroke="#5b6572" stroke-width="1.6" marker-end="url(#glA)"/>
+  <rect x="756" y="214" width="136" height="60" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="824" y="232" font-size="10.5" font-weight="600" fill="#111418" text-anchor="middle">snapshot.json</text>
+  <text x="824" y="248" font-size="8.5" fill="#5b6572" text-anchor="middle">tmp → rename (atomic)</text>
+  <text x="824" y="262" font-size="8.5" fill="#5b6572" text-anchor="middle">reloaded on boot</text>
+
+  <rect x="598" y="284" width="294" height="54" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="610" y="302" font-size="10.5" font-weight="600" fill="#111418">board-server/public/ — board bundle</text>
+  <text x="610" y="320" font-size="8.5" fill="#5b6572" font-family="Menlo,monospace">index.html · board.css · js/board|render|util.js</text>
+
+  <text x="598" y="362" font-size="9.5" fill="#5b6572">GET /healthz — liveness + snapshot age (uptime)</text>
+
+  <!-- read corridor -->
+  <text x="962" y="192" font-size="11" font-weight="700" fill="#5b6572" text-anchor="middle">GET (public)</text>
+  <text x="962" y="208" font-size="8.5" fill="#5b6572" text-anchor="middle">every 30 s + 0–5 s jitter</text>
+  <line x1="905" y1="225" x2="1018" y2="225" stroke="#5b6572" stroke-width="2.2" marker-end="url(#glA)"/>
+  <text x="962" y="245" font-size="8.5" fill="#5b6572" text-anchor="middle" font-family="Menlo,monospace">Cache-Control:</text>
+  <text x="962" y="258" font-size="8.5" fill="#5b6572" text-anchor="middle" font-family="Menlo,monospace">no-store</text>
+
+  <!-- visitors -->
+  <rect x="1020" y="100" width="140" height="210" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="1090" y="140" font-size="26" text-anchor="middle">🌍</text>
+  <text x="1090" y="166" font-size="11.5" font-weight="700" fill="#111418" text-anchor="middle">anyone with</text>
+  <text x="1090" y="182" font-size="11.5" font-weight="700" fill="#111418" text-anchor="middle">the link</text>
+  <text x="1090" y="206" font-size="9" fill="#5b6572" text-anchor="middle">board page:</text>
+  <text x="1090" y="220" font-size="9" fill="#5b6572" text-anchor="middle">poll 30 s + jitter</text>
+  <text x="1090" y="234" font-size="9" fill="#5b6572" text-anchor="middle">1 s age ticker</text>
+  <text x="1090" y="256" font-size="9" fill="#5b6572" text-anchor="middle">fresh → aging 2 m</text>
+  <text x="1090" y="270" font-size="9" fill="#b26a00" text-anchor="middle">→ stale 5 m banner</text>
+  <text x="1090" y="292" font-size="9.5" font-weight="700" fill="#5b6572" text-anchor="middle">read-only</text>
+
+  <!-- key decisions strip -->
+  <rect x="20" y="415" width="1140" height="190" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="40" y="442" font-size="12.5" font-weight="700" fill="#111418">Key decisions (locked)</text>
+
+  <rect x="40" y="456" width="360" height="62" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="54" y="477" font-size="10.5" font-weight="700" fill="#111418">① Push, not pull</text>
+  <text x="54" y="495" font-size="9" fill="#5b6572">the Mac POSTs snapshots; the server never</text>
+  <text x="54" y="509" font-size="9" fill="#5b6572">contacts the Mac or DMIT</text>
+
+  <rect x="415" y="456" width="360" height="62" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="429" y="477" font-size="10.5" font-weight="700" fill="#111418">② Bearer + timingSafeEqual</text>
+  <text x="429" y="495" font-size="9" fill="#5b6572">sha256 both sides · uniform 401 · fail-closed</text>
+  <text x="429" y="509" font-size="9" fill="#5b6572">when unconfigured · the ONLY mutating route</text>
+
+  <rect x="790" y="456" width="360" height="62" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="804" y="477" font-size="10.5" font-weight="700" fill="#111418">③ No DB — one atomic snapshot file</text>
+  <text x="804" y="495" font-size="9" fill="#5b6572">memory doc + snapshot.json via tmp → rename</text>
+  <text x="804" y="509" font-size="9" fill="#5b6572">restart-safe with honest receivedAt</text>
+
+  <rect x="40" y="530" width="360" height="62" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="54" y="551" font-size="10.5" font-weight="700" fill="#111418">④ 30 s poll + staleness ladder</text>
+  <text x="54" y="569" font-size="9" fill="#5b6572">fresh ≤ 2 min · aging ≤ 5 min · stale &gt; 5 min</text>
+  <text x="54" y="583" font-size="9" fill="#5b6572">banner + dim · age from receivedAt only</text>
+
+  <rect x="415" y="530" width="360" height="62" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="429" y="551" font-size="10.5" font-weight="700" fill="#111418">⑤ GET-only public surface</text>
+  <text x="429" y="569" font-size="9" fill="#5b6572">no SSE · no mutating public endpoint ·</text>
+  <text x="429" y="583" font-size="9" fill="#5b6572">no operator internals on the wire</text>
+
+  <rect x="790" y="530" width="360" height="62" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="804" y="551" font-size="10.5" font-weight="700" fill="#111418">⑥ No Telegram / alarm in the server</text>
+  <text x="804" y="569" font-size="9" fill="#5b6572">alerting stays the Mac's private path;</text>
+  <text x="804" y="583" font-size="9" fill="#5b6572">the public page is quiet — no audio, no prompts</text>
+</svg>
+</div>
+<figcaption>The whole feature on one screen: the Mac's watcher (the only thing that can read DMIT) gains a small publisher that pushes privacy-filtered snapshots to a zero-dependency board server on the prod host; visitors poll a read-only board that is honest about its age. The strip below locks the six decisions every section of this document builds on.</figcaption>
+</figure>
+
+<section id="be-overview">
+<h2>2 · Backend &amp; infrastructure — architecture overview</h2>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 540" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="beM1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="beM1b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+
+  <!-- Mac zone -->
+  <rect x="20" y="40" width="500" height="440" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="40" y="68" font-size="14" font-weight="700" fill="#111418">Erik's Mac — watcher process</text>
+  <text x="40" y="84" font-size="10.5" fill="#5b6572">1 new module + 3 touched files · watcher.js and scheduler.js UNCHANGED</text>
+
+  <rect x="40" y="100" width="210" height="56" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="52" y="122" font-size="12" font-weight="600" fill="#111418">src/watcher.js</text>
+  <text x="52" y="140" font-size="10" fill="#5b6572">emits 'family' after every poll</text>
+
+  <rect x="40" y="186" width="210" height="56" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="52" y="208" font-size="12" font-weight="600" fill="#111418">src/scheduler.js</text>
+  <text x="52" y="226" font-size="10" fill="#5b6572">fan-out: broadcast(event, payload)</text>
+
+  <rect x="290" y="186" width="210" height="56" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="302" y="208" font-size="12" font-weight="600" fill="#111418">src/server.js (panel)</text>
+  <text x="302" y="226" font-size="10" fill="#5b6572">.watchlist LIVE getter · SSE as today</text>
+
+  <rect x="40" y="284" width="210" height="76" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="52" y="306" font-size="12" font-weight="600" fill="#111418">src/index.js <tspan fill="#b26a00" font-size="10">edited</tspan></text>
+  <text x="52" y="324" font-size="10" fill="#5b6572">composed broadcast =</text>
+  <text x="52" y="340" font-size="10" fill="#5b6572">server.broadcast + publisher.onEvent</text>
+
+  <rect x="290" y="284" width="210" height="76" rx="8" fill="#fff" stroke="#0b62d6" stroke-width="1.6"/>
+  <text x="302" y="306" font-size="12" font-weight="700" fill="#0b62d6">src/publisher.js — NEW</text>
+  <text x="302" y="324" font-size="10" fill="#5b6572">debounce · in-flight skip · timeout</text>
+  <text x="302" y="340" font-size="10" fill="#5b6572">privacy filter · fire-and-forget POST</text>
+
+  <rect x="40" y="404" width="210" height="56" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="52" y="426" font-size="12" font-weight="600" fill="#111418">src/state.js <tspan fill="#b26a00" font-size="10">edited</tspan></text>
+  <text x="52" y="444" font-size="10" fill="#5b6572">buildState(): +outSinceMs · +provider</text>
+
+  <rect x="290" y="404" width="210" height="56" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="302" y="426" font-size="12" font-weight="600" fill="#111418">src/config.js <tspan fill="#b26a00" font-size="10">edited</tspan></text>
+  <text x="302" y="444" font-size="10" fill="#5b6572">loadPushConfig() — optional, OFF by default</text>
+
+  <line x1="145" y1="156" x2="145" y2="184" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM1)"/>
+  <text x="155" y="174" font-size="9.5" fill="#5b6572">events</text>
+  <line x1="145" y1="242" x2="145" y2="282" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM1)"/>
+  <text x="155" y="266" font-size="9.5" fill="#5b6572">broadcast()</text>
+  <line x1="250" y1="302" x2="288" y2="238" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+  <text x="278" y="266" font-size="9.5" fill="#5b6572">panel SSE</text>
+  <line x1="250" y1="322" x2="288" y2="322" stroke="#0b62d6" stroke-width="1.8" marker-end="url(#beM1b)"/>
+  <line x1="395" y1="242" x2="395" y2="282" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+  <text x="405" y="266" font-size="9.5" fill="#5b6572">live watchlist</text>
+  <line x1="300" y1="360" x2="230" y2="402" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+  <text x="240" y="384" font-size="9.5" fill="#5b6572">buildState(store, …)</text>
+  <line x1="395" y1="360" x2="395" y2="402" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+  <text x="405" y="384" font-size="9.5" fill="#5b6572">url + token (boot)</text>
+
+  <!-- push arrow -->
+  <path d="M500 322 H 560 V 122 H 598" fill="none" stroke="#0b62d6" stroke-width="2.4" marker-end="url(#beM1b)"/>
+  <text x="560" y="230" font-size="11" font-weight="700" fill="#0b62d6" text-anchor="middle" transform="rotate(-90 560 230)">HTTPS POST /api/push · Bearer</text>
+
+  <!-- Prod zone -->
+  <rect x="600" y="40" width="500" height="440" rx="12" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="620" y="68" font-size="14" font-weight="700" fill="#111418">Prod host — vps-stock service (NEW)</text>
+  <text x="620" y="84" font-size="10.5" fill="#5b6572">this repo, board-server/ · no DB · no SSE · no Telegram · one POST, token-gated</text>
+
+  <rect x="620" y="96" width="220" height="56" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="632" y="118" font-size="12" font-weight="600" fill="#111418">shared Caddy edge (:443)</text>
+  <text x="632" y="136" font-size="10" fill="#5b6572">own vhost snippet → 127.0.0.1:&lt;port&gt;</text>
+
+  <rect x="620" y="186" width="460" height="150" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="635" y="210" font-size="12" font-weight="600" fill="#111418">board-server/server.js — single node:http file, zero npm deps</text>
+  <rect x="635" y="226" width="136" height="64" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="703" y="252" font-size="10.5" font-weight="600" fill="#111418" text-anchor="middle">auth + validate</text>
+  <text x="703" y="268" font-size="9" fill="#5b6572" text-anchor="middle">timingSafeEqual · caps</text>
+  <rect x="791" y="226" width="136" height="64" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="859" y="252" font-size="10.5" font-weight="600" fill="#111418" text-anchor="middle">in-memory doc</text>
+  <text x="859" y="268" font-size="9" fill="#5b6572" text-anchor="middle">{v, pushedAt, receivedAt, state}</text>
+  <rect x="947" y="226" width="118" height="64" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="1006" y="252" font-size="10.5" font-weight="600" fill="#111418" text-anchor="middle">snapshot.json</text>
+  <text x="1006" y="268" font-size="9" fill="#5b6572" text-anchor="middle">tmp + rename · boot reload</text>
+  <line x1="771" y1="258" x2="789" y2="258" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+  <line x1="927" y1="258" x2="945" y2="258" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+  <line x1="730" y1="152" x2="730" y2="184" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM1)"/>
+
+  <rect x="620" y="376" width="220" height="64" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="632" y="398" font-size="12" font-weight="600" fill="#111418">public reads</text>
+  <text x="632" y="414" font-size="10" fill="#5b6572">GET / (board page + assets)</text>
+  <text x="632" y="428" font-size="10" fill="#5b6572">GET /api/state — Cache-Control: no-store</text>
+  <rect x="860" y="376" width="220" height="64" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="872" y="398" font-size="12" font-weight="600" fill="#111418">GET /healthz</text>
+  <text x="872" y="414" font-size="10" fill="#5b6572">liveness + snapshot age</text>
+  <text x="872" y="428" font-size="10" fill="#5b6572">for the uptime monitor</text>
+  <line x1="800" y1="336" x2="730" y2="374" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+  <line x1="900" y1="336" x2="960" y2="374" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM1)"/>
+</svg>
+</div>
+<figcaption>Backend module map. The Mac side changes are pure composition — the watcher, detector, scheduler, panel, and Telegram paths are untouched; the publisher taps the existing event stream through a composed <code>broadcast</code>. The server side is one new self-contained directory.</figcaption>
+</figure>
+
+<p>Two halves, one direction of data flow:</p>
+<ul>
+  <li><strong>Mac-side publisher</strong> (<code>src/publisher.js</code>) — subscribes to the watcher's <code>'family'</code> event (the only event that fires in production; <code>'cycle'</code> is emitted only by <code>pollAllOnce()</code>, which <code>start()</code> never calls), builds a privacy-filtered snapshot, and fire-and-forgets it to the public server. Disabled unless configured; can never affect watching or alerting (PRD D1, G4).</li>
+  <li><strong>Public board server</strong> (<code>board-server/</code>, new top-level directory) — a single <code>node:http</code> file plus static board assets. Holds the latest snapshot in memory, mirrors it to one atomically-written JSON file for restart survival, and serves three public GETs plus the one token-gated POST. No database, no SSE, no Telegram, no other mutating endpoint (PRD D3–D5).</li>
+</ul>
+
+<div class="tblwrap"><table>
+  <tr><th>Where</th><th>What ships</th><th>Notes</th></tr>
+  <tr><td><code>src/publisher.js</code></td><td>NEW publisher module</td><td>Injectable <code>fetch</code>/<code>now</code>/logger like <code>telegram.js</code></td></tr>
+  <tr><td><code>src/index.js</code></td><td>composed broadcast + lifecycle</td><td>Only wiring; zero <code>watcher.js</code>/<code>scheduler.js</code> changes</td></tr>
+  <tr><td><code>src/config.js</code></td><td><code>loadPushConfig()</code> (NEW, optional)</td><td><code>loadSecrets()</code> stays required-for-Telegram-only</td></tr>
+  <tr><td><code>src/state.js</code></td><td><code>outSinceMs</code> + <code>provider</code> pass-through in <code>buildState()</code></td><td>Additive; local panel ignores unknown fields</td></tr>
+  <tr><td><code>board-server/</code></td><td>NEW: <code>server.js</code> + <code>public/</code> board assets + <code>.env.example</code></td><td>Standalone — deploy copies only this directory; imports nothing from <code>src/</code></td></tr>
+  <tr><td><code>ops/</code></td><td>NEW: <code>compose.yml</code> + <code>vps-stock.caddy</code> snippet template</td><td>Generic, secret-free; real values live only on the box</td></tr>
+</table></div>
+
+<div class="callout">
+  <strong>Name choice — <code>board-server/</code>.</strong> The DESIGN doc's placeholder was “<code>server/</code> or similar”; a top-level <code>server/</code> would read as a sibling of <code>src/server.js</code> (the local panel server) and invite confusion. <code>board-server/</code> says exactly what it serves. It intentionally imports nothing from <code>src/</code> so the deployable unit is one directory with zero <code>node_modules</code>; the ~40 lines of body-cap/timeout logic from <code>src/http-body.js</code> are copied in with a provenance comment (deliberate DRY exception — deployment isolation wins).
+</div>
+</section>
+
+
+<section id="be-publisher">
+<h2>3 · Mac-side publisher — <code>src/publisher.js</code></h2>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 350" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="beM2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="beM2b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+  <text x="30" y="30" font-size="12.5" font-weight="700" fill="#111418">PUSH LIFECYCLE — debounce, in-flight skip, no queue</text>
+
+  <rect x="30" y="52" width="130" height="48" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="95" y="80" font-size="12" font-weight="700" fill="#111418" text-anchor="middle">IDLE</text>
+  <rect x="250" y="52" width="170" height="48" rx="10" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="335" y="74" font-size="12" font-weight="700" fill="#111418" text-anchor="middle">DEBOUNCING</text>
+  <text x="335" y="90" font-size="9.5" fill="#5b6572" text-anchor="middle">trailing 3 s · timer unref'd</text>
+  <rect x="510" y="52" width="170" height="48" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="595" y="74" font-size="12" font-weight="700" fill="#111418" text-anchor="middle">push in flight?</text>
+  <text x="595" y="90" font-size="9.5" fill="#5b6572" text-anchor="middle">checked at fire time</text>
+  <rect x="770" y="52" width="170" height="48" rx="10" fill="#e7f5ec" stroke="#0a8a3a"/>
+  <text x="855" y="74" font-size="12" font-weight="700" fill="#0a8a3a" text-anchor="middle">SENDING</text>
+  <text x="855" y="90" font-size="9.5" fill="#5b6572" text-anchor="middle">fetch · AbortSignal.timeout(10 s)</text>
+  <rect x="510" y="150" width="260" height="46" rx="10" fill="#f6f8fa" stroke="#98a2ae" stroke-dasharray="5 4"/>
+  <text x="640" y="170" font-size="11" font-weight="700" fill="#5b6572" text-anchor="middle">SKIP — no retry queue</text>
+  <text x="640" y="186" font-size="9.5" fill="#5b6572" text-anchor="middle">next 'family' event (≤ ~60 s) re-arms; next poll IS the retry</text>
+
+  <line x1="160" y1="76" x2="248" y2="76" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM2)"/>
+  <text x="204" y="66" font-size="9.5" fill="#5b6572" text-anchor="middle">'family' event</text>
+  <path d="M300 100 C 285 130, 385 130, 370 100" fill="none" stroke="#5b6572" stroke-width="1.4" marker-end="url(#beM2)"/>
+  <text x="335" y="144" font-size="9" fill="#5b6572" text-anchor="middle">more events → timer resets</text>
+  <line x1="420" y1="76" x2="508" y2="76" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM2)"/>
+  <text x="464" y="66" font-size="9.5" fill="#5b6572" text-anchor="middle">timer fires</text>
+  <line x1="680" y1="76" x2="768" y2="76" stroke="#0a8a3a" stroke-width="1.8" marker-end="url(#beM2)"/>
+  <text x="724" y="66" font-size="9.5" fill="#0a8a3a" font-weight="700" text-anchor="middle">no</text>
+  <line x1="595" y1="100" x2="595" y2="148" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM2)"/>
+  <text x="608" y="128" font-size="9.5" fill="#5b6572">yes</text>
+  <path d="M940 76 C 1040 76, 1040 232, 95 232 C 58 232, 58 130, 78 102" fill="none" stroke="#5b6572" stroke-width="1.4" marker-end="url(#beM2)"/>
+  <text x="895" y="252" font-size="9.5" fill="#5b6572" text-anchor="end">settled (ok or fail) → IDLE · failures logged throttled, token never logged</text>
+
+  <text x="30" y="262" font-size="12.5" font-weight="700" fill="#111418">PAYLOAD — built fresh at send time, never queued</text>
+  <g font-size="9.8" fill="#111418">
+    <rect x="30" y="276" width="196" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="128" y="298" text-anchor="middle" font-weight="600">getWatchlist() — LIVE ref</text>
+    <text x="128" y="314" text-anchor="middle" fill="#5b6572">panel server's getter, not a boot copy</text>
+    <rect x="256" y="276" width="196" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="354" y="298" text-anchor="middle" font-weight="600">buildState(store, alarmed = ∅)</text>
+    <text x="354" y="314" text-anchor="middle" fill="#5b6572">default empty set → alarm:false</text>
+    <rect x="482" y="276" width="196" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="580" y="298" text-anchor="middle" font-weight="600">strip watcher + lastCheckMs</text>
+    <text x="580" y="314" text-anchor="middle" fill="#5b6572">operator-internal — never leaves the Mac</text>
+    <rect x="708" y="276" width="176" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="796" y="298" text-anchor="middle" font-weight="600">wrap {v:1, pushedAt, state}</text>
+    <text x="796" y="314" text-anchor="middle" fill="#5b6572">schema-versioned envelope</text>
+    <rect x="914" y="276" width="176" height="52" rx="8" fill="#eef3fb" stroke="#0b62d6"/>
+    <text x="1002" y="298" text-anchor="middle" font-weight="700" fill="#0b62d6">POST + Bearer token</text>
+    <text x="1002" y="314" text-anchor="middle" fill="#5b6572">content-type: application/json</text>
+  </g>
+  <line x1="226" y1="302" x2="254" y2="302" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM2)"/>
+  <line x1="452" y1="302" x2="480" y2="302" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM2)"/>
+  <line x1="678" y1="302" x2="706" y2="302" stroke="#5b6572" stroke-width="1.6" marker-end="url(#beM2)"/>
+  <line x1="884" y1="302" x2="912" y2="302" stroke="#0b62d6" stroke-width="1.6" marker-end="url(#beM2b)"/>
+</svg>
+</div>
+<figcaption>Publisher lifecycle (top) and payload construction (bottom). The payload is always rebuilt from the store at the moment of sending — a skipped push never leaves a stale body behind.</figcaption>
+</figure>
+
+<h3>Responsibilities &amp; wiring</h3>
+<ul>
+  <li><strong>Event source:</strong> the composed broadcast in <code>src/index.js</code>. Today index.js hands <code>server.broadcast</code> to the scheduler; with push configured it hands a two-line composition instead — <code>server.broadcast(ev, payload)</code> first (panel latency unaffected), then <code>publisher.onEvent(ev)</code>. The publisher reacts only to <code>'family'</code>; all other events are ignored. <strong>Zero changes to <code>watcher.js</code> or <code>scheduler.js</code>.</strong></li>
+  <li><strong>Debounce:</strong> a trailing 3 s timer (within the agreed 2–5 s band), reset by every <code>'family'</code> event, <code>unref()</code>'d so it never holds the process open. Steady-state the 6 families land ~10 s apart (60 s cadence ÷ 6, staggered), so in practice this yields roughly one small push per family poll; the debounce exists to coalesce bursts — process-start catch-up, backoff recovery, wake-from-sleep — into a single push.</li>
+  <li><strong>In-flight skip:</strong> if a push is still awaiting its response when the timer fires, the fire is skipped outright. No queue, no retry loop — the next family poll (≤ one cadence away) re-arms the debounce and carries strictly newer data. Combined with the fetch timeout this bounds the publisher to at most one outstanding request, ever.</li>
+  <li><strong>Timeout:</strong> <code>AbortSignal.timeout(10_000)</code> on the fetch. This is deliberate hardening over <code>telegram.js</code>, whose <code>postOnce</code> has no timeout — here a hung socket would wedge the in-flight flag and silently stop all future pushes, so the abort is load-bearing, not cosmetic.</li>
+  <li><strong>Live watchlist:</strong> the payload reads the panel server's <code>.watchlist</code> getter, never a boot-time reference — after <code>POST /api/watchlist/remove</code> (or a manual edit + reload) the very next push reflects the new family set. A boot-time ref would re-publish removed plans forever.</li>
+  <li><strong>Shutdown:</strong> <code>publisher.stop()</code> clears the timer and aborts any in-flight fetch; index.js calls it in the existing graceful-shutdown path before <code>server.stop()</code>.</li>
+</ul>
+
+<h3>Configuration — <code>loadPushConfig()</code> in <code>src/config.js</code></h3>
+<p>A separate, <em>optional</em> loader beside <code>loadSecrets()</code> (which stays required-for-Telegram-only and is not touched). Same file, same <code>KEY=VALUE</code> parser, same env-wins-over-file precedence.</p>
+<div class="tblwrap"><table>
+  <tr><th>Key</th><th>Where</th><th>Meaning</th></tr>
+  <tr><td><code>DMIT_WATCH_PUSH_URL</code></td><td><code>~/.dmit-watch/config</code>, env override wins</td><td>Full push endpoint, e.g. <code>https://vps-stock.daichenlab.com/api/push</code>; must parse as http(s)</td></tr>
+  <tr><td><code>DMIT_WATCH_PUSH_TOKEN</code></td><td>same (chmod 600 file; never in the repo)</td><td>Bearer token — generate with <code>openssl rand -hex 32</code>; same value in the server's env file</td></tr>
+</table></div>
+<div class="tblwrap"><table>
+  <tr><th>Config state</th><th>Loader result</th><th>Log line</th></tr>
+  <tr><td>Both keys present, URL valid</td><td><span class="in">feature ON</span> — <code>{url, token}</code></td><td>“push publisher enabled → &lt;host only&gt;” (token value never logged)</td></tr>
+  <tr><td>Neither key present</td><td><span class="out">feature OFF</span> — <code>null</code></td><td>one info line: “public push not configured — skipping” (default for every public-repo user)</td></tr>
+  <tr><td>Exactly one key present</td><td><span class="out">feature OFF</span> — <code>null</code></td><td><span class="warn">warn</span>: names the missing key (misconfig must be visible, not silent)</td></tr>
+  <tr><td>URL malformed / not http(s)</td><td><span class="out">feature OFF</span> — <code>null</code></td><td><span class="warn">warn</span> with the parse problem; never crashes the watcher</td></tr>
+</table></div>
+
+<h3>Payload &amp; privacy filter</h3>
+<ul>
+  <li><strong>Envelope:</strong> <code>{ v: 1, pushedAt: now(), state }</code> — <code>pushedAt</code> is the Mac clock at build time; the server independently stamps <code>receivedAt</code> on accept (that, not <code>pushedAt</code>, drives public freshness).</li>
+  <li><strong>State:</strong> the panel's own <code>buildState({ watchlist: live, store })</code> — zero new state modeling (PRD D2) — with three subtractions: <code>buildState</code> is called with its <em>default empty</em> <code>alarmed</code> set so every plan carries <code>alarm:false</code>; the <code>watcher</code> key (uptime/Chrome/backoff lamp — operator internals) is deleted from the copy before wrapping; and each plan's <code>lastCheckMs</code> is stripped — per-plan poll timing is operator detail (DESIGN §8) and the board never renders it. Nothing else is rewritten.</li>
+  <li><strong>Size:</strong> today's 37-plan snapshot serializes to ~12 KB — roughly 5× headroom under the server's 64 KB body cap.</li>
+</ul>
+
+<h3>New in <code>src/state.js</code>: <code>outSinceMs</code> + <code>provider</code></h3>
+<p><code>planView()</code> gains one symmetric field: <code>outSinceMs = status === 'out' ? row?.last_change ?? null : null</code>, exactly mirroring the existing <code>inSinceMs</code>. Plans seeded OUT that have never transitioned have <code>last_change = null</code>, so the field is null and the board renders nothing (the DESIGN's render-if-present contract). The generation view additionally passes through the family's <code>provider</code> field (<code>whmcs</code> for the HNL/VDS families) so the board's DC badge is data-driven; when absent the board defaults to DMIT defensively. Both fields also appear in the local panel's <code>/api/state</code> — additive and ignored by the existing panel JS.</p>
+
+<h3>Failure isolation guarantees</h3>
+<div class="tblwrap"><table>
+  <tr><th>Guarantee</th><th>Mechanism</th></tr>
+  <tr><td>A push failure can never break watching or alerting</td><td><code>onEvent</code> is synchronous timer arming only; the send path is fully try/caught and fire-and-forget; the composed broadcast calls <code>server.broadcast</code> first and the publisher's own errors are swallowed after logging (matching index.js's stay-up doctrine)</td></tr>
+  <tr><td>No unbounded log noise while the box is unreachable (GFW flap, Mac offline)</td><td>Failure logs throttled: log the first failure immediately, then at most one line per 5 min, plus a single “push recovered” line — counters kept in <code>_state</code> for tests</td></tr>
+  <tr><td>Token can never leak</td><td>Token appears only in the Authorization header; log lines print the target host at most, never the header, never the config values (same discipline as <code>telegram.js</code>)</td></tr>
+  <tr><td>No stale data pushed</td><td>Payload built at send time from the store + live watchlist; skipped fires build nothing</td></tr>
+  <tr><td>Process exit never blocked</td><td>Debounce timer <code>unref()</code>'d; in-flight fetch aborted on <code>stop()</code></td></tr>
+</table></div>
+</section>
+
+
+<section id="be-server">
+<h2>4 · Public board server — <code>board-server/</code></h2>
+
+<p>Layout (the deployable unit is this one directory):</p>
+<div class="tblwrap"><table>
+  <tr><th>Path</th><th>Contents</th></tr>
+  <tr><td><code>board-server/server.js</code></td><td>The whole service: router, bearer auth, body caps, snapshot store, atomic file mirror, static serving. Node ≥ 24 stdlib only (<code>node:http</code>, <code>node:crypto</code>, <code>node:fs/promises</code>, <code>node:path</code>) — no <code>package.json</code>, no <code>npm install</code>, no imports from <code>src/</code></td></tr>
+  <tr><td><code>board-server/public/</code></td><td>Static board assets — <code>index.html</code>, <code>board.css</code>, <code>js/</code> (<code>board.js</code>, <code>render.js</code>, <code>util.js</code>); favicon is an inline <code>data:</code> URI in the page, not a file (the Frontend worker's surface)</td></tr>
+  <tr><td><code>board-server/.env.example</code></td><td>Documented template; the real env file lives only on the box</td></tr>
+</table></div>
+
+<h3>Route manifest</h3>
+<div class="tblwrap"><table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th><th>Success</th><th>Errors</th></tr>
+  <tr><td>GET</td><td><code>/</code> + static assets</td><td>none</td><td>Board page, <code>board.css</code>, <code>js/*</code> modules (path-normalized, prefix-checked as in <code>src/server.js</code>; favicon is inline <code>data:</code> — no asset route)</td><td>200</td><td>404 unknown asset · 403 traversal attempt</td></tr>
+  <tr><td>GET</td><td><code>/api/state</code></td><td>none</td><td>Latest snapshot doc; header <code>Cache-Control: no-store</code></td><td>200 — <code>state: null</code> while warming up (never a 404/500)</td><td>—</td></tr>
+  <tr><td>GET</td><td><code>/healthz</code></td><td>none</td><td>Liveness + snapshot age for uptime monitoring</td><td>200 <code>{ok, receivedAt, ageMs}</code></td><td>—</td></tr>
+  <tr><td>POST</td><td><code>/api/push</code></td><td><strong>Bearer token</strong></td><td>The ONLY mutating endpoint: accept a snapshot from the Mac</td><td>200 <code>{ok:true, receivedAt}</code></td><td>401 missing/wrong token — <em>and fail-closed 401 for every push when the server has no token configured</em> · 400 malformed JSON · 408 stalled body · 413 &gt; 64 KB · 422 wrong shape</td></tr>
+  <tr><td>≠GET</td><td>anything but <code>/api/push</code></td><td>—</td><td>Method gate</td><td>—</td><td>405 + <code>Allow: GET</code> (GET on <code>/api/push</code> → 405 + <code>Allow: POST</code>)</td></tr>
+  <tr><td>GET</td><td>unknown path</td><td>—</td><td>—</td><td>—</td><td>404</td></tr>
+</table></div>
+<p class="sub">HEAD is routed like GET (Node suppresses the body for HEAD responses automatically), so naive uptime probes work.</p>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 290" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="beM3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="beM3r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c62828"/></marker>
+  </defs>
+  <text x="30" y="30" font-size="12.5" font-weight="700" fill="#111418">POST /api/push — guard chain (every rejection is a clean status, inside the router's try/catch)</text>
+  <g font-size="10" fill="#111418">
+    <rect x="30" y="56" width="120" height="66" rx="9" fill="#eef3fb" stroke="#0b62d6"/>
+    <text x="90" y="84" text-anchor="middle" font-weight="700" fill="#0b62d6">POST</text>
+    <text x="90" y="100" text-anchor="middle" fill="#5b6572">/api/push</text>
+    <rect x="180" y="56" width="150" height="66" rx="9" fill="#fff" stroke="#c9d2dc"/>
+    <text x="255" y="80" text-anchor="middle" font-weight="600">token configured?</text>
+    <text x="255" y="96" text-anchor="middle" fill="#5b6572">env PUSH_TOKEN set at boot</text>
+    <text x="255" y="110" text-anchor="middle" fill="#5b6572">(else fail-closed)</text>
+    <rect x="360" y="56" width="150" height="66" rx="9" fill="#fff" stroke="#c9d2dc"/>
+    <text x="435" y="80" text-anchor="middle" font-weight="600">Bearer matches?</text>
+    <text x="435" y="96" text-anchor="middle" fill="#5b6572">sha256 both sides →</text>
+    <text x="435" y="110" text-anchor="middle" fill="#5b6572">crypto.timingSafeEqual</text>
+    <rect x="540" y="56" width="150" height="66" rx="9" fill="#fff" stroke="#c9d2dc"/>
+    <text x="615" y="80" text-anchor="middle" font-weight="600">body bounded?</text>
+    <text x="615" y="96" text-anchor="middle" fill="#5b6572">≤ 64 KB cap ·</text>
+    <text x="615" y="110" text-anchor="middle" fill="#5b6572">10 s read timeout</text>
+    <rect x="720" y="56" width="130" height="66" rx="9" fill="#fff" stroke="#c9d2dc"/>
+    <text x="785" y="84" text-anchor="middle" font-weight="600">JSON.parse ok?</text>
+    <rect x="880" y="56" width="150" height="66" rx="9" fill="#fff" stroke="#c9d2dc"/>
+    <text x="955" y="80" text-anchor="middle" font-weight="600">shape ok?</text>
+    <text x="955" y="96" text-anchor="middle" fill="#5b6572">v === 1 · pushedAt finite ·</text>
+    <text x="955" y="110" text-anchor="middle" fill="#5b6572">state.datacenters is array</text>
+  </g>
+  <line x1="150" y1="89" x2="178" y2="89" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM3)"/>
+  <line x1="330" y1="89" x2="358" y2="89" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM3)"/>
+  <line x1="510" y1="89" x2="538" y2="89" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM3)"/>
+  <line x1="690" y1="89" x2="718" y2="89" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM3)"/>
+  <line x1="850" y1="89" x2="878" y2="89" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM3)"/>
+
+  <g stroke="#c62828" stroke-width="1.6">
+    <line x1="255" y1="122" x2="255" y2="168" marker-end="url(#beM3r)"/>
+    <line x1="435" y1="122" x2="435" y2="168" marker-end="url(#beM3r)"/>
+    <line x1="615" y1="122" x2="615" y2="168" marker-end="url(#beM3r)"/>
+    <line x1="785" y1="122" x2="785" y2="168" marker-end="url(#beM3r)"/>
+    <line x1="955" y1="122" x2="955" y2="168" marker-end="url(#beM3r)"/>
+  </g>
+  <g font-size="11" font-weight="800" fill="#c62828" text-anchor="middle">
+    <text x="255" y="188">401</text>
+    <text x="435" y="188">401</text>
+    <text x="615" y="188">413 / 408</text>
+    <text x="785" y="188">400</text>
+    <text x="955" y="188">422</text>
+  </g>
+  <rect x="240" y="212" width="640" height="52" rx="10" fill="#e7f5ec" stroke="#0a8a3a" stroke-width="1.5"/>
+  <text x="560" y="234" font-size="11.5" font-weight="700" fill="#0a8a3a" text-anchor="middle">ACCEPT — doc = {v, pushedAt, receivedAt: now(), state} → memory, then tmp + rename → snapshot.json</text>
+  <text x="560" y="252" font-size="10" fill="#0a8a3a" text-anchor="middle">respond 200 {ok:true, receivedAt} — file-write failure is logged but never fails the request (memory still serves)</text>
+  <path d="M1030 89 C 1080 89, 1080 238, 882 238" fill="none" stroke="#0a8a3a" stroke-width="1.8" marker-end="url(#beM3)"/>
+</svg>
+</div>
+<figcaption>The push guard chain. Only the fields the envelope contract names are validated; the plan tree itself is not deep-validated (forward compatible — the board renders defensively, and the only writer is the token-holding Mac).</figcaption>
+</figure>
+
+<h3>Bearer auth — constant-time, fail-closed</h3>
+<ul>
+  <li>At boot the server hashes the configured token once: <code>sha256(PUSH_TOKEN)</code>. Per request it hashes the presented credential and compares digests with <code>crypto.timingSafeEqual</code> — hashing first guarantees equal-length buffers (timingSafeEqual throws on length mismatch) and leaks neither content nor length.</li>
+  <li><strong>Fail-closed:</strong> if <code>PUSH_TOKEN</code> is unset or empty at boot, the server logs one loud warning and answers <em>every</em> push 401. The read side keeps serving whatever the snapshot file held — a misdeployed env file degrades to staleness, never to an open write endpoint.</li>
+  <li>The token value never appears in any log line or error body; 401 responses are uniform (<code>{error:"unauthorized"}</code>) regardless of which check failed.</li>
+  <li><strong>Deliberately NOT ported from <code>src/server.js</code>:</strong> the loopback <code>Host</code> guard (this server legitimately answers a public hostname behind Caddy) and the CSRF <code>Origin</code>/<code>Sec-Fetch-Site</code> guard — there are no cookies and no browser-initiated writes here, so CSRF has no surface; the bearer token is the entire write-auth story, and an Origin-style guard could only ever reject legitimate pushes. What IS ported: the <code>sendJson</code> idiom, the <code>SECURITY_HEADERS</code> block (nosniff, frame DENY, no-referrer, CSP), the router-level try/catch that turns every handler rejection into an HTTP status (a request must never crash the process), and the body-cap/timeout reader.</li>
+</ul>
+
+<h3>Snapshot store — memory first, one file for restarts</h3>
+<div class="tblwrap"><table>
+  <tr><th>Concern</th><th>Behavior</th></tr>
+  <tr><td>In-memory doc</td><td><code>{v, pushedAt, receivedAt, state}</code> — replaced wholesale on each accepted push (immutable swap, no field-level mutation); <code>receivedAt = now()</code> with <code>now</code> injectable for tests</td></tr>
+  <tr><td>Durable mirror</td><td>After each accept: serialize the doc → write <code>snapshot.json.tmp</code> (same directory, same filesystem) → <code>rename()</code> over <code>snapshot.json</code>. Rename is atomic on POSIX: readers and crashes see either the old file or the new one, never a torn write. Writes are serialized on a promise chain so overlapping pushes cannot interleave</td></tr>
+  <tr><td>Write failure</td><td>Logged (throttled); the request still returns 200 — the in-memory doc keeps serving. Durability degrades, availability doesn't</td></tr>
+  <tr><td>Boot load</td><td>Missing file → start empty (“warming up”, a designed state). Unparseable/wrong-shape file → rename it aside to <code>snapshot.json.corrupt</code>, log a warning, start empty — never crash. A loaded doc keeps its persisted <code>receivedAt</code>, so a restart while the Mac is offline honestly shows old age instead of faking freshness</td></tr>
+  <tr><td>Staleness</td><td>Computed by consumers from <code>receivedAt</code> only. The server itself never mutates or “expires” a snapshot — the last known board stays visible, clearly aged (PRD G3)</td></tr>
+</table></div>
+
+<h3>Response shapes</h3>
+<div class="tblwrap"><table>
+  <tr><th>Field</th><th><code>GET /api/state</code></th></tr>
+  <tr><td><code>v</code></td><td>Push schema version (1) — null while warming up</td></tr>
+  <tr><td><code>pushedAt</code></td><td>Mac clock at payload build (informational) — null while warming up</td></tr>
+  <tr><td><code>receivedAt</code></td><td><strong>Server clock at accept — the single freshness truth</strong> the board's age pill, amber tier, and stale banner key off — null while warming up</td></tr>
+  <tr><td><code>now</code></td><td>Server clock at response time. Lets the page compute age as <code>(clientNow − skew) − receivedAt</code> instead of trusting the visitor's clock (a visitor 10 min fast would otherwise see a permanent false stale banner). Render-if-present for the board</td></tr>
+  <tr><td><code>state</code></td><td>The privacy-filtered snapshot (counts, datacenters→generations→plans, generatedAt; no <code>watcher</code> key, no per-plan <code>lastCheckMs</code>, <code>alarm:false</code> everywhere) — <code>null</code> while warming up → board renders the “warming up” state</td></tr>
+</table></div>
+<div class="tblwrap"><table>
+  <tr><th>Field</th><th><code>GET /healthz</code></th></tr>
+  <tr><td><code>ok</code></td><td><code>true</code> whenever the process answers — this endpoint means “service up”, not “data fresh”</td></tr>
+  <tr><td><code>receivedAt</code> / <code>ageMs</code></td><td>Last-push stamp and computed age (null before the first push) — lets the uptime monitor add a separate, non-paging “data stale” condition (e.g. <code>ageMs &lt; 600000</code>)</td></tr>
+</table></div>
+
+<h3>Headers &amp; caching</h3>
+<div class="tblwrap"><table>
+  <tr><th>Route</th><th>Cache-Control</th><th>Why</th></tr>
+  <tr><td><code>/api/state</code>, <code>/healthz</code></td><td><code>no-store</code></td><td>Freshness endpoint must never be cached by browsers or intermediaries (orchestrator-fixed)</td></tr>
+  <tr><td><code>/</code> (index.html)</td><td><code>no-cache</code></td><td>Page shell revalidates on each visit so deploys land immediately</td></tr>
+  <tr><td><code>board.css</code> / <code>js/*</code></td><td><code>public, max-age=300</code></td><td>Tiny assets; 5 min of staleness after a deploy is acceptable, saves refetches during polling sessions</td></tr>
+  <tr><td>all responses</td><td colspan="2"><code>SECURITY_HEADERS</code>: <code>x-content-type-options: nosniff</code> · <code>x-frame-options: DENY</code> · <code>referrer-policy: no-referrer</code> · CSP <code>default-src 'self'</code> (+ <code>img-src 'self' data:</code>, <code>connect-src 'self'</code>, <code>form-action 'none'</code>, <code>object-src 'none'</code>) — same shape as the panel's block, with no inline scripts on the board</td></tr>
+</table></div>
+</section>
+
+
+<section id="be-sequence">
+<h2>5 · Push flow end-to-end</h2>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 560" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="beM4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+  </defs>
+  <g font-size="12" font-weight="700" fill="#111418" text-anchor="middle">
+    <rect x="60" y="16" width="180" height="34" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/><text x="150" y="38">Mac publisher</text>
+    <rect x="360" y="16" width="190" height="34" rx="8" fill="#eef3fb" stroke="#c9d2dc"/><text x="455" y="38">board-server</text>
+    <rect x="640" y="16" width="170" height="34" rx="8" fill="#fff" stroke="#c9d2dc"/><text x="725" y="38">snapshot.json</text>
+    <rect x="890" y="16" width="180" height="34" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/><text x="980" y="38">visitor's board</text>
+  </g>
+  <line x1="150" y1="50" x2="150" y2="540" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <line x1="455" y1="50" x2="455" y2="540" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <line x1="725" y1="50" x2="725" y2="540" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <line x1="980" y1="50" x2="980" y2="540" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+
+  <g font-size="10.5" fill="#111418">
+    <line x1="150" y1="86" x2="453" y2="86" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM4)"/>
+    <text x="300" y="78" text-anchor="middle">POST /api/push · Bearer · {v:1, pushedAt, state} (~3 s after a family poll)</text>
+    <text x="455" y="108" text-anchor="middle" font-size="9.5" fill="#5b6572">401/400/408/413/422 guards → accept · receivedAt = now()</text>
+    <line x1="455" y1="140" x2="723" y2="140" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM4)"/>
+    <text x="590" y="132" text-anchor="middle">write .tmp → rename (atomic)</text>
+    <line x1="453" y1="152" x2="152" y2="152" stroke="#5b6572" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#beM4)"/>
+    <text x="300" y="144" text-anchor="middle" font-size="9.5" fill="#5b6572">200 {ok:true, receivedAt} — fire-and-forget, failure just logs</text>
+
+    <line x1="980" y1="192" x2="457" y2="192" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM4)"/>
+    <text x="718" y="184" text-anchor="middle">GET /api/state — every 30 s + 0–5 s jitter</text>
+    <line x1="455" y1="216" x2="978" y2="216" stroke="#5b6572" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#beM4)"/>
+    <text x="718" y="234" text-anchor="middle" font-size="9.5" fill="#0a8a3a" font-weight="700">{…, receivedAt, now, state} · Cache-Control: no-store → pill “updated 38s ago” · 1 s local age ticker</text>
+  </g>
+
+  <rect x="40" y="258" width="1050" height="26" rx="6" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="565" y="275" font-size="10" font-weight="700" fill="#5b6572" text-anchor="middle">— container restarts (redeploy / host reboot) —</text>
+  <g font-size="10.5" fill="#111418">
+    <line x1="455" y1="312" x2="723" y2="312" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM4)"/>
+    <text x="590" y="304" text-anchor="middle">boot: read snapshot.json</text>
+    <line x1="723" y1="338" x2="457" y2="338" stroke="#5b6572" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#beM4)"/>
+    <text x="590" y="330" text-anchor="middle" font-size="9.5" fill="#5b6572">doc — persisted receivedAt kept (missing → “warming up” · corrupt → renamed aside, start empty)</text>
+    <line x1="980" y1="374" x2="457" y2="374" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM4)"/>
+    <text x="718" y="366" text-anchor="middle">GET /api/state</text>
+    <line x1="455" y1="398" x2="978" y2="398" stroke="#5b6572" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#beM4)"/>
+    <text x="718" y="390" text-anchor="middle" font-size="9.5" fill="#0a8a3a" font-weight="700">same doc — the board never blanks on a redeploy</text>
+  </g>
+
+  <rect x="40" y="422" width="1050" height="26" rx="6" fill="#fdf6e7" stroke="#b26a00"/>
+  <text x="565" y="439" font-size="10" font-weight="700" fill="#b26a00" text-anchor="middle">— Mac offline (sleep / network / GFW flap): pushes stop, reads keep answering —</text>
+  <g font-size="10.5" fill="#111418">
+    <text x="150" y="474" text-anchor="middle" font-size="14" font-weight="800" fill="#c62828">✕</text>
+    <text x="150" y="490" text-anchor="middle" font-size="9.5" fill="#c62828">skips + throttled failure logs</text>
+    <line x1="980" y1="484" x2="457" y2="484" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM4)"/>
+    <text x="718" y="476" text-anchor="middle">GET /api/state</text>
+    <line x1="455" y1="510" x2="978" y2="510" stroke="#5b6572" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#beM4)"/>
+    <text x="718" y="528" text-anchor="middle" font-size="9.5" fill="#b26a00" font-weight="700">same doc, receivedAt frozen → age grows → amber at 2 min → ⚠ stale banner at 5 min (PRD G3)</text>
+  </g>
+</svg>
+</div>
+<figcaption>One push, one read, and the two failure bands: restart survival via the snapshot file, and honest staleness when the Mac goes dark. The server never fabricates freshness and never contacts the Mac or DMIT (PRD D1).</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Real-world cadence:</strong> with 6 families at ~60 s cadence staggered ~10 s apart, a push lands ~3 s after each family poll — roughly every 10 s, ~12 KB each. Well inside PRD G2 (public within ~2 poll cycles) and negligible bandwidth; bursts coalesce via the debounce.</li>
+  <li><strong>Warming up</strong> (fresh deploy, no file yet): <code>/api/state</code> returns <code>state:null</code> and the board renders its designed “warming up” empty state — the first push (≤ one cadence after the Mac side is configured) fills it.</li>
+</ul>
+</section>
+
+
+<section id="be-deploy">
+<h2>6 · Deployment — multi-tenant prod host</h2>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 470" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="beM5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="beM5b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+
+  <rect x="20" y="70" width="170" height="62" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="105" y="96" font-size="12" font-weight="700" fill="#111418" text-anchor="middle">🌍 viewers</text>
+  <text x="105" y="114" font-size="10" fill="#5b6572" text-anchor="middle">GET board + /api/state</text>
+  <rect x="20" y="190" width="170" height="62" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="105" y="216" font-size="12" font-weight="700" fill="#111418" text-anchor="middle">Mac watcher</text>
+  <text x="105" y="234" font-size="10" fill="#0b62d6" font-weight="600" text-anchor="middle">POST /api/push · Bearer</text>
+  <text x="20" y="290" font-size="9.5" fill="#5b6572">DNS: vps-stock.daichenlab.com → host A record</text>
+  <text x="20" y="304" font-size="9.5" fill="#5b6572">already EXISTS (DNS-only) → Caddy auto-provisions</text>
+  <text x="20" y="318" font-size="9.5" fill="#5b6572">the TLS cert on its first restart</text>
+
+  <line x1="190" y1="101" x2="248" y2="130" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM5)"/>
+  <line x1="190" y1="221" x2="248" y2="180" stroke="#0b62d6" stroke-width="1.8" marker-end="url(#beM5b)"/>
+  <text x="219" y="106" font-size="9.5" fill="#5b6572">:443</text>
+
+  <rect x="250" y="60" width="310" height="340" rx="12" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="270" y="88" font-size="13" font-weight="700" fill="#111418">shared Caddy edge container</text>
+  <text x="270" y="104" font-size="10" fill="#5b6572">ONE per box · terminates TLS for every tenant</text>
+  <rect x="270" y="118" width="270" height="48" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="282" y="138" font-size="11" font-weight="600" fill="#111418">main Caddyfile</text>
+  <text x="282" y="154" font-size="9.5" fill="#5b6572">globals + one import line per tenant snippet</text>
+  <rect x="270" y="180" width="270" height="42" rx="8" fill="#fff" stroke="#e3e7ec"/>
+  <text x="282" y="198" font-size="10.5" fill="#5b6572">existing tenant snippets — NEVER edited</text>
+  <text x="282" y="212" font-size="9.5" fill="#98a2ae">each app owns exactly one snippet file</text>
+  <rect x="270" y="236" width="270" height="64" rx="8" fill="#eef3fb" stroke="#0b62d6" stroke-width="1.5"/>
+  <text x="282" y="256" font-size="11" font-weight="700" fill="#0b62d6">vps-stock.caddy — NEW snippet</text>
+  <text x="282" y="272" font-size="9.5" fill="#5b6572">vps-stock.daichenlab.com {</text>
+  <text x="282" y="286" font-size="9.5" fill="#5b6572">&#160;&#160;encode zstd gzip · reverse_proxy 127.0.0.1:&lt;port&gt; }</text>
+  <rect x="270" y="316" width="270" height="66" rx="8" fill="#fdf6e7" stroke="#b26a00"/>
+  <text x="282" y="336" font-size="10" font-weight="700" fill="#b26a00">edge change = container RESTART, not reload</text>
+  <text x="282" y="352" font-size="9.5" fill="#5b6572">(reload can serve a stale config inode)</text>
+  <text x="282" y="368" font-size="9.5" fill="#5b6572">then smoke-test EVERY tenant domain</text>
+
+  <line x1="560" y1="268" x2="628" y2="268" stroke="#5b6572" stroke-width="1.8" marker-end="url(#beM5)"/>
+  <text x="594" y="258" font-size="9.5" fill="#5b6572" text-anchor="middle">127.0.0.1 only</text>
+  <text x="594" y="284" font-size="9.5" fill="#5b6572" text-anchor="middle">→ 8080</text>
+
+  <rect x="630" y="120" width="470" height="230" rx="12" fill="#fff" stroke="#c9d2dc"/>
+  <text x="650" y="148" font-size="13" font-weight="700" fill="#111418">vps-stock container (unique name)</text>
+  <text x="650" y="166" font-size="10" fill="#5b6572">node:24-alpine class · runs as the unprivileged node user · read-only rootfs</text>
+  <text x="650" y="180" font-size="10" fill="#5b6572">no npm deps → no build step, no registry, no supply chain</text>
+  <rect x="650" y="196" width="210" height="58" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="662" y="218" font-size="10.5" font-weight="600" fill="#111418">/app ← app dir (ro)</text>
+  <text x="662" y="234" font-size="9.5" fill="#5b6572">server.js + public/ — the only code</text>
+  <rect x="880" y="196" width="200" height="58" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="892" y="218" font-size="10.5" font-weight="600" fill="#111418">/data ← data dir (rw)</text>
+  <text x="892" y="234" font-size="9.5" fill="#5b6572">snapshot.json (+ .tmp) — survives redeploys</text>
+  <rect x="650" y="268" width="430" height="62" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/>
+  <text x="662" y="290" font-size="10.5" font-weight="600" fill="#111418">env file on the box only (chmod 600): PUSH_TOKEN · host port choice</text>
+  <text x="662" y="306" font-size="9.5" fill="#5b6572">repo ships .env.example — a secret scan on the PR stays clean (PRD G6)</text>
+  <text x="662" y="320" font-size="9.5" fill="#5b6572">resource-capped (memory/cpu) so a traffic spike can't starve other tenants</text>
+  <text x="630" y="372" font-size="10" fill="#5b6572">app files under /opt/&lt;app&gt;/ per house convention · healthcheck curls /healthz from inside the container</text>
+</svg>
+</div>
+<figcaption>Deploy topology. The service joins the box the same way every tenant does: its own container on a loopback port, its own Caddy snippet, one import line — and never touches anyone else's files.</figcaption>
+</figure>
+
+<h3>Container &amp; compose (<code>ops/compose.yml</code>)</h3>
+<div class="tblwrap"><table>
+  <tr><th>Setting</th><th>Value</th><th>Why</th></tr>
+  <tr><td>image</td><td><code>node:24-alpine</code> (stock)</td><td>Zero npm deps → no Dockerfile, no build, no registry; the app is bind-mounted</td></tr>
+  <tr><td>command</td><td><code>node /app/server.js</code></td><td>Single file boots the whole service</td></tr>
+  <tr><td>container_name</td><td>unique on the box (e.g. <code>vps-stock</code>)</td><td>House rule: no name collisions with other tenants</td></tr>
+  <tr><td>ports</td><td><code>127.0.0.1:&lt;host-port&gt;:8080</code></td><td>Loopback-only exposure; only the shared Caddy edge reaches it. In-container the server binds <code>0.0.0.0:8080</code> (a 127.0.0.1 bind inside the container would be unreachable through the port map)</td></tr>
+  <tr><td>volumes</td><td>app dir → <code>/app</code> (ro) · data dir → <code>/data</code> (rw)</td><td>Code immutable at runtime; snapshot survives container replacement</td></tr>
+  <tr><td>env_file / user / restart</td><td>box-local env file · <code>node</code> · <code>unless-stopped</code></td><td>Secrets off-repo; unprivileged; comes back on host reboot</td></tr>
+  <tr><td>read_only + resource caps</td><td><code>read_only: true</code> (only <code>/data</code> writable) · modest <code>mem_limit</code>/<code>cpus</code></td><td>Hardening + multi-tenant fairness</td></tr>
+  <tr><td>healthcheck</td><td><code>node -e "fetch('http://127.0.0.1:8080/healthz').then(r=&gt;process.exit(r.ok?0:1)).catch(()=&gt;process.exit(1))"</code></td><td>No curl/wget needed in the slim image</td></tr>
+</table></div>
+
+<h3>Env contract</h3>
+<div class="tblwrap"><table>
+  <tr><th>Variable</th><th>Default</th><th>Meaning</th></tr>
+  <tr><td><code>PUSH_TOKEN</code></td><td><em>(none — required)</em></td><td>Bearer token for <code>/api/push</code>; unset → loud warning + fail-closed 401 on every push while reads keep serving</td></tr>
+  <tr><td><code>PORT</code> / <code>HOST</code></td><td><code>8080</code> / <code>0.0.0.0</code></td><td>In-container listen address (env-overridable in the paths.js style; tests pass <code>port: 0</code>)</td></tr>
+  <tr><td><code>SNAPSHOT_FILE</code></td><td><code>/data/snapshot.json</code></td><td>Durable mirror location (tests point it at a temp dir)</td></tr>
+  <tr><td><code>HOST_PORT</code></td><td><em>(compose only)</em></td><td>The loopback host port chosen at deploy time after checking what's free on the box; referenced by the compose port map and mirrored as a literal in the Caddy snippet</td></tr>
+</table></div>
+<p><code>board-server/.env.example</code> documents all four with placeholder values and the <code>openssl rand -hex 32</code> recipe; the Mac-side counterpart is two commented example lines (<code>DMIT_WATCH_PUSH_URL</code>, <code>DMIT_WATCH_PUSH_TOKEN</code>) added to the repo's existing <code>~/.dmit-watch/config</code> example. Real values exist in exactly two places: the box's env file and the Mac's config file, both chmod 600.</p>
+
+<h3>Caddy vhost snippet (<code>ops/vps-stock.caddy</code>)</h3>
+<div class="tblwrap"><table>
+  <tr><th>Directive</th><th>Content</th><th>Note</th></tr>
+  <tr><td>site block</td><td><code>vps-stock.daichenlab.com { … }</code></td><td>Caddy obtains + renews the certificate automatically — the A record already exists (DNS-only), so HTTP-01 validation succeeds on the first restart</td></tr>
+  <tr><td>encode</td><td><code>encode zstd gzip</code></td><td>The state JSON compresses ~5×</td></tr>
+  <tr><td>reverse_proxy</td><td><code>reverse_proxy 127.0.0.1:&lt;host-port&gt;</code></td><td>Literal port written at deploy time (tenant env vars don't reach the edge's config)</td></tr>
+</table></div>
+<p>The snippet is a new standalone file in the edge's snippet directory plus <strong>one</strong> import line in the main Caddyfile. Other tenants' snippets are never edited (house rule).</p>
+
+<h3>Deploy runbook</h3>
+<ol>
+  <li><strong>Pick a free loopback port</strong> on the box: check listening sockets and the other tenants' compose files; record the choice in the env file.</li>
+  <li><strong>Stage the app:</strong> create <code>/opt/&lt;app&gt;/{app,data}</code>; copy <code>board-server/</code> into <code>app/</code> and <code>ops/compose.yml</code> alongside; create the env file from <code>.env.example</code> with a fresh <code>openssl rand -hex 32</code> token; <code>chmod 600</code> it.</li>
+  <li><strong>Start + verify locally:</strong> <code>docker compose up -d</code>; from the box, curl <code>127.0.0.1:&lt;host-port&gt;/healthz</code> (expect <code>ok:true</code>) and <code>/api/state</code> (expect the warming-up shape); confirm the healthcheck goes healthy.</li>
+  <li><strong>Wire the edge:</strong> copy the snippet (with the literal port) into the edge's snippet directory; add the one import line to the main Caddyfile if the import isn't glob-based.</li>
+  <li><strong>Restart the Caddy edge container</strong> — restart, not reload (house rule: reload can pin a stale config inode).</li>
+  <li><strong>Smoke-test every tenant domain</strong> on the box (HTTP status of each existing vhost) plus the new one: <code>https://vps-stock.daichenlab.com/healthz</code> over TLS proves cert issuance worked.</li>
+  <li><strong>Configure the Mac:</strong> add the two push keys to <code>~/.dmit-watch/config</code>; restart the launchd watcher; watch the log for the “push publisher enabled” line and the first successful push; confirm the public board leaves “warming up” within one poll cycle.</li>
+  <li><strong>Prove staleness honesty (Gate-3 check):</strong> stop the watcher → banner appears after 5 min; start it → banner clears within ~30 s. Then add <code>/healthz</code> to the uptime monitor.</li>
+</ol>
+</section>
+
+
+<section id="be-ops">
+<h2>7 · Operational notes</h2>
+
+<div class="tblwrap"><table>
+  <tr><th>Topic</th><th>Policy</th></tr>
+  <tr><td>Log hygiene</td><td>Neither side ever logs the token, the Authorization header, or a request body. Mac: throttled failure lines + one recovery line. Server: one line per accepted push (family counts only); rejected pushes log status + reason class, with 401 floods coalesced into a per-minute counter line so an internet scanner can't flood the log.</td></tr>
+  <tr><td>Abuse surface &amp; limits</td><td>Public surface is two tiny GET JSONs + static files behind Caddy; the only expensive-ish path is token-gated and body-capped (64 KB, 10 s read timeout — same numbers as <code>src/http-body.js</code>). No rate limiter in v1: a 401 costs one hash + compare. If abuse ever shows up, rate limiting belongs at the Caddy edge, not in the app.</td></tr>
+  <tr><td>Mac offline = honest staleness</td><td>By design the server keeps serving the last snapshot with <code>receivedAt</code> frozen; the board escalates amber → stale banner (PRD G3). <code>/healthz</code> stays 200 (the <em>service</em> is up); the monitor can alert separately on <code>ageMs</code> if the operator wants a “watcher dark &gt; N min” signal distinct from “site down”.</td></tr>
+  <tr><td>Uptime monitoring</td><td>Point the operator's existing uptime monitor at <code>GET /healthz</code>: condition 1 = HTTP 200 (paging), optional condition 2 = <code>ageMs &lt; 600000</code> (non-paging staleness signal). No auth needed; the endpoint reveals nothing beyond what <code>/api/state</code> already exposes.</td></tr>
+  <tr><td>Token rotation</td><td>Generate a new token → update the box env file + <code>docker compose up -d</code> (recreates the container) → update <code>~/.dmit-watch/config</code> → restart the watcher. Doing the server first means the gap is a few 401'd pushes (logged, harmless — next poll retries); no downtime for readers.</td></tr>
+  <tr><td>Clocks</td><td>All freshness math uses the server's clock (<code>receivedAt</code>, <code>now</code>); the Mac's <code>pushedAt</code> is informational only, so Mac↔server clock skew cannot fake freshness or staleness. Visitor clock skew is neutralized by the <code>now</code> field on <code>/api/state</code>.</td></tr>
+  <tr><td>Testability</td><td>Publisher: injectable <code>fetch</code>/<code>now</code>/logger + exposed counters (the <code>telegram.js</code> pattern) — unit tests assert debounce, skip, privacy filter, and throttled logging with a fake clock. Server: factory takes <code>{port: 0, snapshotFile: tmpdir, token, now}</code> — <code>node --test</code> integration covers the full guard chain (401/400/408/413/422/200), atomic-write ordering, corrupt-file boot, and the no-store header, matching the repo's existing test style.</td></tr>
+</table></div>
+
+<div class="callout">
+  <strong>Invariant recap (audit surface, PRD G4/G6).</strong> The public server contains no Telegram code path, no SQLite, no SSE, and exactly one mutating route, which is bearer-gated and fail-closed. The Mac's watcher/alerting behavior is bit-identical with the publisher disabled, and the publisher is disabled unless both push keys are present. Secrets exist only in the box env file and <code>~/.dmit-watch/config</code>; the repo ships <code>.example</code> files only.
+</div>
+</section>
+
+
+<section id="fe-arch">
+<h2>8 · Frontend · Client architecture</h2>
+<p>The public board is a <strong>separate entry</strong> — its own HTML, its own JS modules, its own CSS file — living under the vps-stock server's own static root (<code>board-server/public/</code>). Nothing from the panel's <code>public/</code> directory is ever mounted or imported, so alarm/audio/POST code is excluded <em>by construction</em>, not by runtime flags (DESIGN §8/§10). The client is framework-free ES modules: one fetch loop, pure HTML-string builders, one paint per new snapshot.</p>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1080 480" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="fea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="feb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+
+  <!-- data source -->
+  <rect x="20" y="70" width="185" height="110" rx="10" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="112" y="96" font-size="13" font-weight="700" fill="#111418" text-anchor="middle">GET /api/state</text>
+  <text x="112" y="116" font-size="10.5" fill="#5b6572" text-anchor="middle" font-family="Menlo,monospace">receivedAt · state{…}</text>
+  <text x="112" y="134" font-size="10" fill="#5b6572" text-anchor="middle">Cache-Control: no-store</text>
+  <text x="112" y="152" font-size="10" fill="#5b6572" text-anchor="middle">the board's ONLY network call</text>
+
+  <line x1="205" y1="125" x2="253" y2="125" stroke="#0b62d6" stroke-width="2.2" marker-end="url(#feb)"/>
+  <text x="229" y="112" font-size="10" font-weight="700" fill="#0b62d6" text-anchor="middle">JSON</text>
+
+  <!-- board.js -->
+  <rect x="255" y="40" width="255" height="185" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="270" y="64" font-size="13" font-weight="700" fill="#111418" font-family="Menlo,monospace">js/board.js — entry</text>
+  <g font-size="10.5" fill="#5b6572">
+    <text x="270" y="88">· poll loop: 30 s + 0–5 s jitter</text>
+    <text x="270" y="106">· re-render only if receivedAt changed</text>
+    <text x="270" y="124">· 1 s age ticker (pill label only)</text>
+    <text x="270" y="142">· backoff ×2 on consecutive failures</text>
+    <text x="270" y="160">· visibilitychange → pause / resume</text>
+    <text x="270" y="178">· holds latest snapshot (immutable)</text>
+    <text x="270" y="196">· FLIP capture around re-paints</text>
+  </g>
+
+  <line x1="510" y1="125" x2="558" y2="125" stroke="#5b6572" stroke-width="2" marker-end="url(#fea)"/>
+  <text x="534" y="112" font-size="10" fill="#5b6572" text-anchor="middle">calls</text>
+
+  <!-- render.js -->
+  <rect x="560" y="40" width="235" height="185" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="575" y="64" font-size="13" font-weight="700" fill="#111418" font-family="Menlo,monospace">js/render.js — pure</text>
+  <g font-size="10.5" fill="#5b6572">
+    <text x="575" y="88">· cardHTML(plan, ctx)</text>
+    <text x="575" y="106">· dcGroupHTML(dc) · genHTML(gen)</text>
+    <text x="575" y="124">· statsHTML(counts) · jumpChips(dcs)</text>
+    <text x="575" y="142">· freshTier(ageMs) → fresh|aging|stale</text>
+    <text x="575" y="160">· input JSON in → HTML string out</text>
+    <text x="575" y="178">· no fetch, no timers, no DOM reads</text>
+    <text x="575" y="196">· unit-testable in isolation</text>
+  </g>
+
+  <!-- util -->
+  <rect x="560" y="245" width="235" height="64" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="575" y="269" font-size="12" font-weight="700" fill="#111418" font-family="Menlo,monospace">js/util.js — pure helpers</text>
+  <text x="575" y="288" font-size="10.5" fill="#5b6572" font-family="Menlo,monospace">$ · esc() · fmtAgo() · fmtDur()</text>
+  <line x1="677" y1="245" x2="677" y2="227" stroke="#5b6572" stroke-width="1.6" marker-end="url(#fea)"/>
+
+  <line x1="795" y1="125" x2="843" y2="125" stroke="#5b6572" stroke-width="2" marker-end="url(#fea)"/>
+  <text x="819" y="112" font-size="10" fill="#5b6572" text-anchor="middle">innerHTML</text>
+
+  <!-- DOM column -->
+  <rect x="845" y="20" width="215" height="330" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="860" y="44" font-size="12.5" font-weight="700" fill="#111418">DOM — one scrolling page</text>
+  <g font-size="10.5">
+    <rect x="860" y="56" width="185" height="34" rx="7" fill="#f6f8fa" stroke="#c9d2dc"/>
+    <text x="868" y="70" fill="#111418" font-weight="600">sticky zone</text>
+    <text x="868" y="84" fill="#5b6572" font-size="9.5">header · freshness pill · stale banner</text>
+    <rect x="860" y="96" width="185" height="26" rx="7" fill="#fff" stroke="#e3e7ec"/>
+    <text x="868" y="113" fill="#5b6572">stats strip (stat-hero)</text>
+    <rect x="860" y="128" width="185" height="26" rx="7" fill="#fff" stroke="#e3e7ec"/>
+    <text x="868" y="145" fill="#5b6572">jump chips → #dc-* anchors</text>
+    <rect x="860" y="160" width="185" height="26" rx="7" fill="#fff" stroke="#e3e7ec"/>
+    <text x="868" y="177" fill="#5b6572">explainer note</text>
+    <rect x="860" y="192" width="185" height="34" rx="7" fill="#f0faf3" stroke="#0a8a3a"/>
+    <text x="868" y="206" fill="#0a8a3a" font-weight="700">IN STOCK NOW — hero grid</text>
+    <text x="868" y="220" fill="#5b6572" font-size="9.5">min 240px columns · first content</text>
+    <rect x="860" y="232" width="185" height="46" rx="7" fill="#fff" stroke="#e3e7ec"/>
+    <text x="868" y="247" fill="#5b6572" font-weight="600">waiting wall</text>
+    <text x="868" y="261" fill="#5b6572" font-size="9.5">DC bar → gen card → plan grid</text>
+    <text x="868" y="273" fill="#5b6572" font-size="9.5">min 170px columns (2-up at 390)</text>
+    <rect x="860" y="284" width="185" height="26" rx="7" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="868" y="301" fill="#5b6572">footer · how-it-works · repo</text>
+    <text x="868" y="334" fill="#98a2ae" font-size="9.5">no tabs — a single view</text>
+  </g>
+
+  <!-- files strip -->
+  <rect x="20" y="380" width="1040" height="80" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="38" y="404" font-size="12" font-weight="700" fill="#111418">board-server/public/ — the board's own static root (five files, no build step)</text>
+  <text x="38" y="426" font-size="10.5" fill="#5b6572" font-family="Menlo,monospace">index.html · board.css · js/board.js · js/render.js · js/util.js</text>
+  <text x="38" y="446" font-size="10.5" fill="#b26a00" font-weight="600">The watcher panel's public/ directory is NOT mounted by this server — the two bundles never share a URL space.</text>
+</svg>
+</div>
+<figcaption>Client architecture: one JSON source, one entry module with all the timers, one pure render module, one paint target. The board bundle lives in its own static root.</figcaption>
+</figure>
+
+<h3>Files</h3>
+<div class="tblwrap"><table>
+  <tr><th>File</th><th>Role</th><th>Provenance</th></tr>
+  <tr><td><code>board-server/public/index.html</code></td><td>Static skeleton: sticky zone (header + freshness pill + stale banner slot), stats strip, jump nav, explainer, IN section, waiting section, footer, <code>&lt;noscript&gt;</code> notice. IDs match the approved mockup (<code>#freshPill #staleBanner #stInWrap #jumpNav #instockGrid #waitingGroups</code>…). Head per DESIGN §10: title “VPS Stock Watch — live DMIT Premium availability”, meta description, <code>color-scheme: light</code>, inline 👁️ <code>data:</code> favicon, <strong>no</strong> <code>noindex</code></td><td>New — structure lifted from <code>MOCKUP.html</code></td></tr>
+  <tr><td><code>board-server/public/board.css</code></td><td>The complete public stylesheet: token block + shared components + public-only classes (<code>.sticky-zone .fresh-pill .jump/.jchip .ctxline .since .grid-in .foot</code>, <code>body.stale</code> dim)</td><td><strong>Trimmed copy</strong> of <code>public/css/tokens.css</code> (decision below)</td></tr>
+  <tr><td><code>board-server/public/js/util.js</code></td><td>Pure helpers only: <code>$</code>, <code>esc()</code>, <code>fmtAgo()</code> (ages: “38s ago”), <code>fmtDur()</code> (durations: “26m”, “2h 14m”, “3d 4h” — new, for since-lines), <code>reduceMotion()</code></td><td>Copied subset of <code>public/js/util.js</code> (drops <code>fmtUptime</code>, <code>famLabel</code>, <code>clock</code>)</td></tr>
+  <tr><td><code>board-server/public/js/render.js</code></td><td>Pure JSON→HTML builders + the paint function; exports <code>cardHTML</code>, <code>freshTier</code> for unit tests</td><td>New — public variant of the panel's <code>pcardHTML</code>, per mockup</td></tr>
+  <tr><td><code>board-server/public/js/board.js</code></td><td>Bootstrap: fetch loop, freshness ticker, backoff, visibility handling, FLIP wrapper, snapshot holder</td><td>New — replaces the panel's <code>app.js</code>+<code>sse.js</code>+<code>store.js</code> trio</td></tr>
+</table></div>
+
+<div class="callout">
+<strong>Decision — CSS sharing is a trimmed copy, not a reference.</strong> The board ships <code>board-server/public/board.css</code>: the <code>:root</code> token block from <code>public/css/tokens.css</code> kept <em>verbatim</em>, the shared component classes kept as-is, and the operator-only classes (<code>.tabs</code>, alarm banner, conn lamp, mute button, <code>.row/.removebtn</code>, blind banner, per-card <code>.fresh</code>) dropped. Rationale: (1) the public server serves its own static dir — referencing the panel's file would mean mounting panel assets on the public origin, exactly what the separate-entry rule forbids; (2) it is build-free; (3) the approved mockup already validated this exact trimmed set. Drift control: a header comment in <code>board.css</code> names the source file and pins the rule “token block stays byte-identical to tokens.css — sync on visual changes”, and one public override is explicit and intentional: <code>.pcard.s-checking::before</code> is neutral grey (<code>--ink-faint</code>) instead of the panel's amber (PRD D5).</div>
+</section>
+
+<section id="fe-contract">
+<h2>9 · Frontend · Render contract — <code>/api/state</code> JSON → components</h2>
+<p>The board is a pure projection of the pushed snapshot — it re-derives nothing about stock. Every visible element maps to a named JSON field; a field that is absent renders <em>nothing</em> (never a placeholder). The snapshot tree is the local panel's <code>buildState()</code> shape (PRD D2), wrapped in the server envelope.</p>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1080 620" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="fec" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+
+  <!-- JSON tree -->
+  <rect x="20" y="20" width="430" height="580" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="40" y="48" font-size="13" font-weight="700" fill="#111418">GET /api/state — response (fields the board reads)</text>
+  <g font-family="Menlo,monospace" font-size="11" fill="#111418">
+    <text x="40" y="80">{</text>
+    <text x="56" y="100" fill="#0b62d6" font-weight="700">receivedAt</text><text x="132" y="100" fill="#5b6572">: 1751600000000,   // ← freshness truth</text>
+    <text x="56" y="120" fill="#0b62d6" font-weight="700">now</text><text x="84" y="120" fill="#5b6572">: server clock → skew fix · v, pushedAt: ignored</text>
+    <text x="56" y="140">state: {</text>
+    <text x="72" y="160" fill="#5b6572">generatedAt: …,                // ignored</text>
+    <text x="72" y="180" fill="#0b62d6" font-weight="700">counts</text><text x="122" y="180" fill="#5b6572">: { total, in, waiting, byLoc },</text>
+    <text x="72" y="200" fill="#0b62d6" font-weight="700">datacenters</text><text x="160" y="200" fill="#5b6572">: [ {</text>
+    <text x="88" y="220" fill="#111418">loc, code, city, country, flag,</text>
+    <text x="88" y="240" fill="#111418">generations: [ {</text>
+    <text x="104" y="260" fill="#111418">key, gen, label, cpu, provider?,</text>
+    <text x="104" y="280" fill="#111418">plans: [ {</text>
+    <text x="120" y="300" fill="#111418">id, name, price, period, popular,</text>
+    <text x="120" y="320" fill="#0b62d6" font-weight="700">status</text><text x="168" y="320" fill="#5b6572">: "in"|"out"|"checking"|"unknown",</text>
+    <text x="120" y="340" fill="#111418">deepLink,</text>
+    <text x="120" y="360" fill="#111418">inSinceMs,      <tspan fill="#5b6572">// non-null only when IN</tspan></text>
+    <text x="120" y="380" fill="#111418">outSinceMs?,    <tspan fill="#5b6572">// optional (orchestrator #1)</tspan></text>
+    <text x="120" y="400" fill="#111418">specs?          <tspan fill="#5b6572">// optional; absent today</tspan></text>
+    <text x="104" y="420" fill="#111418">} ] } ] } ] } }</text>
+  </g>
+  <text x="40" y="460" font-size="10.5" fill="#5b6572">Canonical envelope: {v, pushedAt, receivedAt, now, state} — the</text>
+  <text x="40" y="476" font-size="10.5" fill="#5b6572">board reads receivedAt · now · state; unknown extras ignored.</text>
+  <text x="40" y="504" font-size="10.5" fill="#b26a00" font-weight="600">Never read (must not be pushed): watcher{}, alarm, lastCheckMs —</text>
+  <text x="40" y="520" font-size="10.5" fill="#b26a00" font-weight="600">operator internals stay off the public wire (DESIGN §8).</text>
+  <text x="40" y="548" font-size="10.5" fill="#5b6572">status "unknown" collapses to "checking" AT RENDER TIME —</text>
+  <text x="40" y="564" font-size="10.5" fill="#5b6572">one neutral grey public state, never amber/red (PRD D5).</text>
+
+  <!-- components -->
+  <g font-size="11">
+    <rect x="560" y="30" width="500" height="52" rx="10" fill="#e7f5ec" stroke="#0a8a3a"/>
+    <text x="576" y="52" font-weight="700" fill="#0a8a3a">Freshness pill + stale banner + board dim</text>
+    <text x="576" y="70" fill="#5b6572" font-size="10">age = now − receivedAt · tiers 2 min / 5 min · never from connection state</text>
+
+    <rect x="560" y="96" width="500" height="52" rx="10" fill="#fff" stroke="#c9d2dc"/>
+    <text x="576" y="118" font-weight="700" fill="#111418">Stats strip — stat-hero “N in stock” · waiting · watched · byLoc</text>
+    <text x="576" y="136" fill="#5b6572" font-size="10">counts used verbatim (server is the single counter) · breakdown is per-location ONLY</text>
+
+    <rect x="560" y="162" width="500" height="52" rx="10" fill="#fff" stroke="#c9d2dc"/>
+    <text x="576" y="184" font-weight="700" fill="#111418">Jump chips + DC bar (flag · city · country · provider badge · count)</text>
+    <text x="576" y="202" fill="#5b6572" font-size="10">chips: flag + code → href="#dc-&lt;loc&gt;" · dc-count gains “k in stock ↑” when k &gt; 0</text>
+
+    <rect x="560" y="228" width="500" height="52" rx="10" fill="#fff" stroke="#c9d2dc"/>
+    <text x="576" y="250" font-weight="700" fill="#111418">Generation card — chip + label + cpu + waiting-plan count</text>
+    <text x="576" y="268" fill="#5b6572" font-size="10">chip text derived from cpu (“EPYC” → AMD EPYC stack, else gen label e.g. VDS)</text>
+
+    <rect x="560" y="294" width="500" height="120" rx="10" fill="#fff" stroke="#c9d2dc"/>
+    <text x="576" y="316" font-weight="700" fill="#111418">Plan card — three public variants</text>
+    <text x="576" y="336" fill="#0a8a3a" font-size="10.5">IN: green edge + tinted card · context line (flag · city · cpu) · price · specs? ·</text>
+    <text x="576" y="352" fill="#0a8a3a" font-size="10.5">footer = Buy now ▸ (deepLink, new tab) + “in stock · fmtDur(now−inSinceMs)”</text>
+    <text x="576" y="372" fill="#9c4a4a" font-size="10.5">OUT: muted edge · calm pill · no footer — unless outSinceMs present → quiet</text>
+    <text x="576" y="388" fill="#9c4a4a" font-size="10.5">muted line “out of stock · fmtDur(now−outSinceMs)” (render-if-present)</text>
+    <text x="576" y="406" fill="#5b6572" font-size="10.5">CHECKING (also "unknown"): grey dashed pill · grey edge · no footer</text>
+
+    <rect x="560" y="428" width="500" height="52" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="576" y="450" font-weight="700" fill="#111418">Section routing — IN hero first, then the wall</text>
+    <text x="576" y="468" fill="#5b6572" font-size="10">status === "in" → hero grid (snapshot encounter order) · everything else → wall (config order)</text>
+
+    <rect x="560" y="494" width="500" height="52" rx="10" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="576" y="516" font-weight="700" fill="#111418">Empty / absent handling</text>
+    <text x="576" y="534" fill="#5b6572" font-size="10">empty gen group → omitted · DC bar stays as landmark · absent family → renders nothing</text>
+  </g>
+
+  <!-- arrows -->
+  <g stroke="#0b62d6" stroke-width="1.8">
+    <line x1="450" y1="97" x2="558" y2="56" marker-end="url(#fec)"/>
+    <line x1="450" y1="177" x2="558" y2="122" marker-end="url(#fec)"/>
+    <line x1="450" y1="215" x2="558" y2="188" marker-end="url(#fec)"/>
+    <line x1="450" y1="255" x2="558" y2="254" marker-end="url(#fec)"/>
+    <line x1="450" y1="330" x2="558" y2="340" marker-end="url(#fec)"/>
+    <line x1="450" y1="320" x2="558" y2="454" marker-end="url(#fec)"/>
+  </g>
+</svg>
+</div>
+<figcaption>Field-to-component mapping. Blue fields are the only inputs the board consumes; everything else in the payload is ignored, and operator fields must not be on the wire at all.</figcaption>
+</figure>
+
+<h3>Card field mapping (exact)</h3>
+<div class="tblwrap"><table>
+  <tr><th>JSON field</th><th>Card element</th><th>Rule</th></tr>
+  <tr><td><code>status</code></td><td>Card class + status pill</td><td><code>in</code> → <code>.s-in</code> + <span class="in">IN STOCK</span> pill · <code>out</code> → <code>.s-out</code> + <span class="out">Out of Stock</span> pill · <code>checking</code> <em>and</em> <code>unknown</code> → <code>.s-checking</code> + neutral grey dashed “Checking…” pill. No fourth public state; unrecognized values also fall back to checking (never render raw text)</td></tr>
+  <tr><td><code>name</code></td><td><code>.pname</code></td><td>Escaped verbatim; mono, orange-ink</td></tr>
+  <tr><td><code>popular</code></td><td><code>.popular</code> badge</td><td>Render only when <code>true</code></td></tr>
+  <tr><td><code>price</code>, <code>period</code></td><td><code>.price</code> row</td><td>Strip leading <code>$</code> from <code>price</code>; render <code>$ NUM USD /period</code> (<code>period</code> defaults to <code>mo</code>)</td></tr>
+  <tr><td>context (IN only)</td><td><code>.ctxline</code></td><td>Composed by the renderer from the enclosing tree: <code>dc.flag · dc.city · gen.cpu</code> — IN cards are lifted out of their DC group so they carry their context with them; wall cards never show it</td></tr>
+  <tr><td><code>specs</code></td><td><code>.specs</code> row</td><td><strong>Render only if present and non-empty.</strong> Absent today → the row (and its top border) is omitted entirely — no “read at runtime” placeholder (standing rule)</td></tr>
+  <tr><td><code>deepLink</code></td><td><code>.buy</code> anchor</td><td>IN cards only: <code>href</code> escaped, <code>target="_blank" rel="noopener"</code>; only <code>http(s):</code> URLs are rendered (scheme-checked before interpolation)</td></tr>
+  <tr><td><code>inSinceMs</code></td><td><code>.since</code> footer text</td><td>IN cards, render-if-present: <code>in stock · fmtDur(now − inSinceMs)</code>; absent → Buy button alone</td></tr>
+  <tr><td><code>outSinceMs</code></td><td>quiet footer line</td><td>OUT cards, render-if-present (orchestrator default #1): muted ink <code>out of stock · fmtDur(now − outSinceMs)</code>; absent → OUT card has no footer at all (shorter card = hierarchy)</td></tr>
+  <tr><td><code>id</code></td><td><code>data-id</code> attribute</td><td>FLIP identity key across re-renders</td></tr>
+</table></div>
+
+<h3>Derived display rules</h3>
+<div class="tblwrap"><table>
+  <tr><th>Element</th><th>Derivation</th></tr>
+  <tr><td>Provider badge (<code>.rp-badge</code>)</td><td>From the family's <code>provider</code> field surfaced on each generation: <code>whmcs</code> anywhere in the DC → <code>qq.pw · WHMCS</code>; otherwise (DMIT default) → <code>DMIT · Premium</code>. Backend passes <code>provider</code> through <code>buildState()</code> onto each generation (contract); an absent field still falls back to the DMIT default defensively</td></tr>
+  <tr><td>Gen chip (<code>.epyc</code>)</td><td><code>cpu</code> contains “EPYC” → stacked <code>AMD EPYC</code>; else <code>label</code> uppercase (e.g. <code>VDS</code>). Series line = <code>cpu</code> verbatim; omitted when empty</td></tr>
+  <tr><td>Section badges</td><td>IN: <code>N plan(s) · buy while they last</code> · waiting: <code>M plans · grouped by datacenter</code></td></tr>
+  <tr><td>DC count</td><td><code>N watched</code> + (<code>k in stock ↑</code> when k&gt;0) or (<code>· all out</code> when every plan is <code>out</code>)</td></tr>
+  <tr><td>Ordering</td><td>Wall: snapshot order untouched (= watchlist config order). IN hero: snapshot encounter order (datacenter → generation → plan). No client-side sorting</td></tr>
+</table></div>
+
+<h3>Every state → exact rendering</h3>
+<div class="tblwrap"><table>
+  <tr><th>State</th><th>Detection</th><th>Rendering</th></tr>
+  <tr><td>Loading (first paint)</td><td>Fetch in flight, nothing held</td><td>Static skeleton from <code>index.html</code>: pill text <code>updated —</code>, stat values <code>—</code>, sections empty. No spinner</td></tr>
+  <tr><td>Warming up</td><td>200 with <code>state:null</code> and <code>receivedAt:null</code> (locked contract — never a 404/500)</td><td>Dashed <code>.empty</code> block in place of the board: “The board is warming up — waiting for the first snapshot from the watcher.” Freshness pill hidden (there is no age to be honest about)</td></tr>
+  <tr><td>Fresh</td><td>age ≤ 2 min</td><td>Pill green dot, <code>updated 38s ago</code>; board full color</td></tr>
+  <tr><td>Aging</td><td>2 min &lt; age ≤ 5 min</td><td>Pill amber (<code>.fresh-pill.aging</code>); no banner, no dim</td></tr>
+  <tr><td><span class="warn">Stale</span></td><td>age &gt; 5 min</td><td>Sticky ⚠ banner shows (“Data may be stale — watcher offline · last update 8m ago”), <code>body.stale</code> dims board to ~55% + desaturates, pill pulses (suppressed under reduced motion). Sticky zone stays crisp</td></tr>
+  <tr><td>Poll failure</td><td><code>GET</code> rejects / non-2xx / bad JSON</td><td>Keep last rendered board; age keeps ticking and escalates naturally toward stale. No error flash, no copy change; enter backoff</td></tr>
+  <tr><td>Plan IN / OUT / checking</td><td><code>status</code></td><td>Card variants above; on a status flip between polls the card FLIP-animates between wall and hero</td></tr>
+  <tr><td>Nothing in stock</td><td><code>counts.in === 0</code></td><td>Stat-hero muted (<code>.in0</code>); IN section shows <code>.empty</code>: “Nothing in stock right now — the board refreshes about every minute.”</td></tr>
+  <tr><td>Everything in stock</td><td>waiting = 0</td><td>Wall collapses; waiting section shows <code>.empty</code>: “All watched plans are in stock right now.”</td></tr>
+  <tr><td>Family all-IN / empty</td><td>Gen has zero non-IN plans / zero plans</td><td>Gen group omitted from the wall; DC bar remains as an anchor landmark with its “k in stock ↑” count. A family absent from the snapshot renders nothing</td></tr>
+</table></div>
+</section>
+
+<section id="fe-poll">
+<h2>10 · Frontend · Polling, freshness &amp; the age ticker</h2>
+<p>Two independent clocks: a <strong>fetch loop</strong> that refreshes data, and a <strong>1-second ticker</strong> that keeps the age label honest between fetches. Freshness is computed from <code>receivedAt</code> only, against the server-corrected clock (the envelope's <code>now</code>) — a live tab holding old data must read as old (DESIGN §5); fetch success is never a freshness signal.</p>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1080 500" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="fpa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+    <marker id="fpg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0a8a3a"/></marker>
+    <marker id="fpw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#b26a00"/></marker>
+  </defs>
+
+  <text x="20" y="32" font-size="13" font-weight="700" fill="#111418">FETCH LOOP — state machine</text>
+  <g font-size="12" font-weight="700" text-anchor="middle" fill="#111418">
+    <rect x="30" y="60" width="140" height="46" rx="10" fill="#f6f8fa" stroke="#c9d2dc"/><text x="100" y="88">IDLE</text>
+    <rect x="280" y="60" width="150" height="46" rx="10" fill="#eef3fb" stroke="#c9d2dc"/><text x="355" y="88">FETCHING</text>
+    <rect x="560" y="30" width="220" height="52" rx="10" fill="#e7f5ec" stroke="#0a8a3a"/>
+    <text x="670" y="52" fill="#0a8a3a">OK</text>
+    <text x="670" y="70" font-size="9.5" font-weight="400" fill="#5b6572">receivedAt changed? → re-render + FLIP</text>
+    <rect x="560" y="120" width="220" height="52" rx="10" fill="#fdf6e7" stroke="#b26a00"/>
+    <text x="670" y="142" fill="#b26a00">FAIL (n-th in a row)</text>
+    <text x="670" y="160" font-size="9.5" font-weight="400" fill="#5b6572">keep last board · no error UI</text>
+    <rect x="30" y="170" width="140" height="46" rx="10" fill="#f6f8fa" stroke="#c9d2dc" stroke-dasharray="5 4"/><text x="100" y="198">HIDDEN</text>
+  </g>
+  <g font-size="10" fill="#5b6572">
+    <line x1="170" y1="83" x2="278" y2="83" stroke="#5b6572" stroke-width="1.8" marker-end="url(#fpa)"/>
+    <text x="224" y="74" text-anchor="middle">timer fires: 30 s + rand(0–5 s)</text>
+    <line x1="430" y1="72" x2="558" y2="54" stroke="#0a8a3a" stroke-width="1.8" marker-end="url(#fpg)"/>
+    <text x="494" y="52" text-anchor="middle" fill="#0a8a3a">2xx + JSON</text>
+    <line x1="430" y1="96" x2="558" y2="140" stroke="#b26a00" stroke-width="1.8" marker-end="url(#fpw)"/>
+    <text x="480" y="130" text-anchor="middle" fill="#b26a00">error / non-2xx</text>
+    <path d="M560 48 C 380 8, 180 18, 104 58" fill="none" stroke="#0a8a3a" stroke-width="1.6" marker-end="url(#fpg)"/>
+    <text x="330" y="24" text-anchor="middle" fill="#0a8a3a">re-arm normal interval · failure count = 0</text>
+    <path d="M660 172 C 620 232, 260 240, 118 210" fill="none" stroke="#b26a00" stroke-width="1.6" marker-end="url(#fpw)"/>
+    <text x="430" y="242" text-anchor="middle" fill="#b26a00">re-arm at 30 s × 2ⁿ, capped 5 min (60 s → 120 s → 240 s → 300 s)</text>
+    <line x1="100" y1="106" x2="100" y2="168" stroke="#5b6572" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#fpa)"/>
+    <text x="190" y="140" text-anchor="middle">document.hidden → clear both timers</text>
+    <path d="M170 205 C 240 205, 240 130, 285 106" fill="none" stroke="#5b6572" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#fpa)"/>
+    <text x="305" y="180" text-anchor="middle">visible again → fetch immediately + restart timers</text>
+  </g>
+
+  <text x="20" y="300" font-size="13" font-weight="700" fill="#111418">AGE TICKER — every 1 s, label only</text>
+  <rect x="20" y="316" width="500" height="120" rx="10" fill="#fff" stroke="#e3e7ec"/>
+  <g font-size="10.5" fill="#5b6572">
+    <text x="38" y="342">age = (Date.now() − skewMs) − receivedAt (clamped ≥ 0) · skew from server now</text>
+    <text x="38" y="362">→ pill label “updated fmtAgo(age)” · banner age text</text>
+    <text x="38" y="382">→ tier class only when the tier CHANGES (fresh|aging|stale)</text>
+    <text x="38" y="402">→ tier change also toggles body.stale + banner .show</text>
+    <text x="38" y="422">Cheap by design: two textContent writes; no re-render, no layout</text>
+  </g>
+
+  <text x="560" y="300" font-size="13" font-weight="700" fill="#111418">FRESHNESS LADDER (from receivedAt only)</text>
+  <rect x="560" y="316" width="500" height="120" rx="10" fill="#fff" stroke="#e3e7ec"/>
+  <rect x="580" y="336" width="140" height="36" rx="8" fill="#e7f5ec" stroke="#0a8a3a"/>
+  <text x="650" y="353" font-size="10" font-weight="800" fill="#0a8a3a" text-anchor="middle">FRESH ≤ 2 min</text>
+  <text x="650" y="366" font-size="8.5" fill="#0a8a3a" text-anchor="middle">green pill</text>
+  <rect x="740" y="336" width="140" height="36" rx="8" fill="#fdf6e7" stroke="#b26a00"/>
+  <text x="810" y="353" font-size="10" font-weight="800" fill="#b26a00" text-anchor="middle">AGING 2–5 min</text>
+  <text x="810" y="366" font-size="8.5" fill="#b26a00" text-anchor="middle">amber pill only</text>
+  <rect x="900" y="336" width="140" height="36" rx="8" fill="#fdf6e7" stroke="#b26a00" stroke-width="2"/>
+  <text x="970" y="353" font-size="10" font-weight="800" fill="#b26a00" text-anchor="middle">STALE &gt; 5 min</text>
+  <text x="970" y="366" font-size="8.5" fill="#b26a00" text-anchor="middle">banner + dim + pulse</text>
+  <line x1="580" y1="392" x2="1040" y2="392" stroke="#5b6572" marker-end="url(#fpa)"/>
+  <text x="580" y="412" font-size="9.5" fill="#5b6572">any newer receivedAt → straight back to FRESH (banner clears, board un-dims)</text>
+  <text x="580" y="428" font-size="9.5" fill="#5b6572">poll failure does NOT touch the ladder — only age does</text>
+</svg>
+</div>
+<figcaption>The fetch loop and the freshness ladder are decoupled on purpose: fetching keeps data current, the ladder keeps the page honest.</figcaption>
+</figure>
+
+<h3>Timing constants (single source in <code>board.js</code>)</h3>
+<div class="tblwrap"><table>
+  <tr><th>Constant</th><th>Value</th><th>Meaning</th></tr>
+  <tr><td><code>POLL_MS</code></td><td>30 000</td><td>Base fetch interval (orchestrator default #2)</td></tr>
+  <tr><td><code>POLL_JITTER_MS</code></td><td>0–5 000 random per cycle</td><td>De-synchronizes many open tabs so pushes don't produce request bursts</td></tr>
+  <tr><td><code>TICK_MS</code></td><td>1 000</td><td>Age-label ticker</td></tr>
+  <tr><td><code>AGING_MS</code></td><td>120 000</td><td>Fresh → aging threshold</td></tr>
+  <tr><td><code>STALE_MS</code></td><td>300 000</td><td>Aging → stale threshold (PRD G3)</td></tr>
+  <tr><td><code>BACKOFF_CAP_MS</code></td><td>300 000</td><td>Failure interval = <code>POLL_MS × 2ⁿ</code> capped here; reset to 0 failures on any success</td></tr>
+</table></div>
+
+<ul>
+  <li><strong>Re-render gate.</strong> A fetch that returns the same <code>receivedAt</code> repaints nothing — the DOM is only rebuilt when a genuinely newer snapshot arrived. Even though a push lands roughly every family poll (~10 s steady-state), the board polls every 30 s and each poll picks up at most one newer snapshot — so the steady state costs at most two paints per minute.</li>
+  <li><strong>FLIP promotion.</strong> Around each real re-render, <code>board.js</code> captures <code>getBoundingClientRect()</code> for every <code>[data-id]</code> card, repaints, then plays the invert transform exactly as the panel's <code>renderPanel(true)</code> does — a restocked card visibly travels from the wall to the hero. Skipped entirely under <code>prefers-reduced-motion</code>.</li>
+  <li><strong>Tab hidden.</strong> <code>visibilitychange</code> → hidden clears both timers (no background fetching); → visible fetches immediately, recomputes the tier once (the board may have gone stale while hidden), and restarts both timers.</li>
+  <li><strong>Clock skew.</strong> Each successful fetch records <code>skewMs = Date.now() − body.now</code> (0 when <code>now</code> is absent — render-if-present); the ticker computes age as <code>(Date.now() − skewMs) − receivedAt</code>, clamped ≥ 0. A visitor's wrong clock can neither fake freshness nor raise a false stale banner.</li>
+</ul>
+</section>
+
+<section id="fe-absent">
+<h2>11 · Frontend · Deliberately absent vs the panel — read-only by construction</h2>
+<p>PRD G4's audit (“the public surface contains GETs only”) is satisfied structurally: the public bundle is a different set of files in a different static root, and the excluded modules are simply never present. There is no flag to misconfigure.</p>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1080 360" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="faa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+  <!-- public bundle -->
+  <rect x="20" y="40" width="330" height="220" rx="12" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="40" y="68" font-size="13" font-weight="700" fill="#111418">PUBLIC bundle — board-server/public/</text>
+  <g font-size="11" fill="#111418" font-family="Menlo,monospace">
+    <text x="40" y="96">index.html · board.css</text>
+    <text x="40" y="118">js/board.js · js/render.js · js/util.js</text>
+  </g>
+  <g font-size="10.5" fill="#5b6572">
+    <text x="40" y="146">network calls in the whole bundle:</text>
+    <text x="40" y="166" font-family="Menlo,monospace" font-weight="700" fill="#0b62d6">fetch('/api/state')   — GET, exactly one</text>
+    <text x="40" y="192">no EventSource · no Audio · no Notification</text>
+    <text x="40" y="210">no POST/PUT/DELETE anywhere in the source</text>
+    <text x="40" y="228">no external origins (fonts, CDNs, analytics)</text>
+  </g>
+
+  <line x1="350" y1="150" x2="470" y2="150" stroke="#0b62d6" stroke-width="2.2" marker-end="url(#faa)"/>
+  <text x="410" y="138" font-size="10.5" font-weight="700" fill="#0b62d6" text-anchor="middle">GET only</text>
+
+  <!-- server surface -->
+  <rect x="470" y="40" width="250" height="220" rx="12" fill="#fff" stroke="#c9d2dc"/>
+  <text x="490" y="68" font-size="13" font-weight="700" fill="#111418">vps-stock server surface</text>
+  <g font-size="10.5" font-family="Menlo,monospace">
+    <text x="490" y="96" fill="#0a8a3a">GET /            board page</text>
+    <text x="490" y="116" fill="#0a8a3a">GET /api/state   snapshot</text>
+    <text x="490" y="136" fill="#0a8a3a">GET /healthz     uptime probe</text>
+    <text x="490" y="156" fill="#0a8a3a">GET /board.css · /js/*</text>
+    <text x="490" y="184" fill="#b26a00">POST /api/push   bearer-gated</text>
+  </g>
+  <text x="490" y="210" font-size="9.5" fill="#5b6572">the one POST has NO client in the</text>
+  <text x="490" y="224" font-size="9.5" fill="#5b6572">public bundle — only the Mac watcher</text>
+  <text x="490" y="238" font-size="9.5" fill="#5b6572">speaks it</text>
+
+  <!-- panel bundle -->
+  <rect x="750" y="40" width="310" height="220" rx="12" fill="#f6f8fa" stroke="#e3e7ec" stroke-dasharray="6 5"/>
+  <text x="770" y="68" font-size="13" font-weight="700" fill="#5b6572">PANEL bundle — public/ (Mac-only)</text>
+  <g font-size="10.5" fill="#5b6572" font-family="Menlo,monospace">
+    <text x="770" y="96">app.js · alarm.js · api.js · sse.js</text>
+    <text x="770" y="116">conn.js · store.js · render.js · util.js</text>
+  </g>
+  <g font-size="10" fill="#9c4a4a">
+    <text x="770" y="146">✕ never mounted by the vps-stock server</text>
+    <text x="770" y="164">✕ never imported by any board module</text>
+    <text x="770" y="182">✕ stays on localhost:7331 with the watcher</text>
+  </g>
+  <text x="770" y="214" font-size="9.5" fill="#5b6572">shared lineage is by COPY (board.css,</text>
+  <text x="770" y="228" font-size="9.5" fill="#5b6572">util subset) — no runtime coupling</text>
+
+  <rect x="20" y="288" width="1040" height="52" rx="10" fill="#fff" stroke="#e3e7ec"/>
+  <text x="40" y="310" font-size="11" font-weight="700" fill="#111418">CI audit (repeatable): grep the public bundle for mutating/alarm primitives — must return zero hits.</text>
+  <text x="40" y="328" font-size="10.5" fill="#5b6572" font-family="Menlo,monospace">grep -rnE "method:|EventSource|new Audio|Notification|\.dmit-watch" board-server/public/ → (no output)</text>
+</svg>
+</div>
+<figcaption>Three URL spaces that never mix: the public bundle can only GET, the one POST has no public client, and the operator panel never leaves the Mac.</figcaption>
+</figure>
+
+<div class="tblwrap"><table>
+  <tr><th>Panel capability</th><th>Public board</th><th>How exclusion is enforced</th></tr>
+  <tr><td>Alarm banner + audio + card pulse (<code>alarm.js</code>)</td><td>Absent</td><td>Module not copied; no <code>#banner</code>/<code>.silence</code> markup in <code>index.html</code>; no <code>Audio</code> in bundle</td></tr>
+  <tr><td>Browser notifications + mute button</td><td>Absent</td><td>No <code>Notification</code> reference; no permission prompt can ever appear on a shared link</td></tr>
+  <tr><td>Tabs: History · Health · Watchlist</td><td>Absent</td><td>Single view; no <code>nav.tabs</code>, no <code>/api/history</code> or <code>/api/health</code> calls (server doesn't expose them anyway)</td></tr>
+  <tr><td>POST wrappers (<code>silence</code>, <code>removeFamily</code> in <code>api.js</code>)</td><td>Absent</td><td><code>api.js</code> not copied; the board's only fetch is a literal GET of <code>/api/state</code></td></tr>
+  <tr><td>SSE stream + connection lamp (<code>sse.js</code>/<code>conn.js</code>)</td><td>Absent — polling instead (no SSE in v1, orchestrator #5)</td><td>No <code>EventSource</code>; freshness pill replaces the lamp and is driven by data age, not link state</td></tr>
+  <tr><td>Watcher lamp / uptime / blind banner</td><td>Absent — folded into the one stale banner</td><td>Board never reads a <code>watcher</code> object; internals stay off the wire</td></tr>
+  <tr><td>Per-card “checked Xs ago”</td><td>Absent</td><td><code>lastCheckMs</code> is stripped by the Mac publisher — never on the public wire; page-level age is the only freshness signal</td></tr>
+  <tr><td><code>noindex,nofollow</code></td><td>Removed — page is meant to be shared</td><td>Public <code>index.html</code> head carries a real title + description instead</td></tr>
+</table></div>
+</section>
+
+<section id="fe-a11y">
+<h2>12 · Frontend · Accessibility &amp; performance</h2>
+
+<h3>Accessibility (DESIGN §7 made concrete)</h3>
+<ul>
+  <li><strong>Semantics</strong> — <code>header</code> · <code>nav aria-label="Jump to datacenter"</code> · <code>section aria-labelledby</code> for IN/waiting zones · DC groups as <code>section aria-label="{city}"</code> · <code>footer</code>. Status pills are words, never color-only.</li>
+  <li><strong>Live regions without chatter</strong> — the freshness pill's <em>visible</em> ticking label is <code>aria-hidden="true"</code>; a visually-hidden sibling with <code>role="status" aria-live="polite"</code> is updated <em>only on tier transitions</em> (“Board data is fresh — updated under 2 minutes ago” / aging / stale copy). This implements the design's “the 1 s tick must not re-announce” requirement literally: screen readers hear three transitions, not 86 400 ticks. The stale banner keeps its own polite <code>role="status"</code>.</li>
+  <li><strong>Keyboard</strong> — tab order: jump chips → Buy links → footer links. Cards are <em>not</em> tabbable (no <code>tabindex</code>, unlike the panel); the Buy anchor is each IN card's only interactive element. Shared <code>:focus-visible</code> outline (2px blue, offset 2px) on chips, Buy, and footer links. Anchor targets carry <code>scroll-margin-top</code> clearing the sticky zone.</li>
+  <li><strong>Reduced motion</strong> — one media block disables: FLIP promotion, card hover lift, stale-pill pulse, <code>html scroll-behavior:smooth</code>. All states remain fully legible via color + copy.</li>
+  <li><strong>Contrast</strong> — token pairs are the panel's proven ≥ 4.5:1 set; the dimmed stale board is intentionally sub-contrast while the full-contrast banner carries the truth.</li>
+  <li><strong>Touch</strong> — Buy buttons and jump chips ≥ 40px effective hit area (padding included); Buy opens a new tab with <code>rel="noopener"</code>.</li>
+</ul>
+
+<h3>Performance (house microsite budget)</h3>
+<div class="tblwrap"><table>
+  <tr><th>Aspect</th><th>Commitment</th></tr>
+  <tr><td>Assets</td><td>100% self-hosted, zero external origins: system font stack only, favicon is an inline <code>data:</code> SVG emoji, no analytics, no CDN. Total page weight target &lt; 30 kB (JS &lt; 15 kB, CSS &lt; 12 kB, gzipped) — far inside the &lt; 80 kB microsite JS budget</td></tr>
+  <tr><td>Network</td><td>One JSON GET per poll cycle (~37-plan payload, a few kB gzipped); <code>Cache-Control: no-store</code> on the API, long-cache immutable is unnecessary at this size for statics</td></tr>
+  <tr><td>Rendering</td><td>First paint is the static skeleton (no CLS: sticky zone and section shells are in the HTML); one <code>innerHTML</code> build per <em>new</em> snapshot; the 1 s ticker writes two <code>textContent</code> nodes and never touches layout</td></tr>
+  <tr><td>Motion</td><td>Compositor-only: <code>transform</code> (FLIP, hover), <code>opacity</code>/<code>filter</code> (stale dim, one-shot transition). No animated layout properties; no scroll handlers (anchors + <code>scroll-margin-top</code> do the jumping)</td></tr>
+  <tr><td>Responsive</td><td>One fluid grid, no column media queries: wall <code>repeat(auto-fill,minmax(min(100%,170px),1fr))</code> (2-up at 390), hero <code>min 240px</code>; shell capped 1180px. Wide content scrolls inside its own container — zero page-level horizontal overflow at 320/390/768/1024/1440</td></tr>
+  <tr><td>Verification</td><td>Playwright screenshots at 320/390/768/1440 for fresh <em>and</em> stale states; overflow assertion at each width; reduced-motion pass; unit tests for the pure exports (<code>cardHTML</code> per status/field-presence matrix, <code>freshTier</code> thresholds, <code>fmtDur</code>, section partitioning)</td></tr>
+</table></div>
+</section>
+
+
+<section id="qa-overview">
+<h2>13 · Test plan — coverage map</h2>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 470" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="qaA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+  </defs>
+
+  <!-- pyramid -->
+  <text x="30" y="34" font-size="13" font-weight="700" fill="#111418">TEST PYRAMID — all layers run with npm test,</text>
+  <text x="30" y="50" font-size="10.5" fill="#5b6572">node --test · only the deployed smoke touches the real host</text>
+  <polygon points="200,64 320,64 350,130 170,130" fill="#fdf6e7" stroke="#b26a00"/>
+  <text x="260" y="92" font-size="11" font-weight="700" fill="#b26a00" text-anchor="middle">DEPLOYED SMOKE</text>
+  <text x="260" y="108" font-size="9.5" fill="#5b6572" text-anchor="middle">9 checks · curl + 1 screenshot</text>
+  <polygon points="165,150 355,150 385,216 135,216" fill="#eef3fb" stroke="#0b62d6"/>
+  <text x="260" y="178" font-size="11" font-weight="700" fill="#0b62d6" text-anchor="middle">E2E — LOCAL FULL LOOP</text>
+  <text x="260" y="194" font-size="9.5" fill="#5b6572" text-anchor="middle">4 flows + 3 visual passes · injected clock</text>
+  <polygon points="130,236 390,236 420,302 100,302" fill="#fff" stroke="#c9d2dc"/>
+  <text x="260" y="264" font-size="11" font-weight="700" fill="#111418" text-anchor="middle">INTEGRATION — board-server</text>
+  <text x="260" y="280" font-size="9.5" fill="#5b6572" text-anchor="middle">~21 cases · real HTTP on port 0 · tmpdir file</text>
+  <polygon points="95,322 425,322 455,388 65,388" fill="#e7f5ec" stroke="#0a8a3a"/>
+  <text x="260" y="350" font-size="11" font-weight="700" fill="#0a8a3a" text-anchor="middle">UNIT — pure functions &amp; publisher</text>
+  <text x="260" y="366" font-size="9.5" fill="#5b6572" text-anchor="middle">~28 cases · injected fetch/now · DOM-free renders</text>
+  <text x="260" y="420" font-size="10" font-weight="700" fill="#5b6572" text-anchor="middle">zero real network · zero real timers · zero fixed ports</text>
+  <text x="260" y="436" font-size="9.5" fill="#5b6572" text-anchor="middle">the token in every test is a sentinel string, never a real secret</text>
+
+  <!-- coverage map -->
+  <text x="540" y="34" font-size="13" font-weight="700" fill="#111418">COVERAGE MAP — test file → shipped surface</text>
+  <g font-size="10.5">
+    <rect x="540" y="52" width="260" height="42" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="552" y="70" font-family="Menlo,monospace" font-weight="600" fill="#111418">test/publisher.test.js</text>
+    <text x="552" y="86" fill="#5b6572" font-size="9.5">captureFetch idiom (telegram.test.js)</text>
+    <rect x="860" y="52" width="240" height="42" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="872" y="70" font-family="Menlo,monospace" fill="#111418">src/publisher.js</text>
+    <text x="872" y="86" font-family="Menlo,monospace" fill="#5b6572" font-size="9.5">src/config.js loadPushConfig()</text>
+
+    <rect x="540" y="104" width="260" height="42" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="552" y="122" font-family="Menlo,monospace" font-weight="600" fill="#111418">test/state.test.js (+cases)</text>
+    <text x="552" y="138" fill="#5b6572" font-size="9.5">extends the existing file</text>
+    <rect x="860" y="104" width="240" height="42" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="872" y="122" font-family="Menlo,monospace" fill="#111418">src/state.js</text>
+    <text x="872" y="138" font-family="Menlo,monospace" fill="#5b6572" font-size="9.5">outSinceMs · provider pass-through</text>
+
+    <rect x="540" y="156" width="260" height="42" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="552" y="174" font-family="Menlo,monospace" font-weight="600" fill="#111418">test/board-render.test.js</text>
+    <text x="552" y="190" fill="#5b6572" font-size="9.5">DOM-free (frontend.test.js idiom)</text>
+    <rect x="860" y="156" width="240" height="42" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="872" y="174" font-family="Menlo,monospace" fill="#111418">board-server/public/js/render.js</text>
+    <text x="872" y="190" font-family="Menlo,monospace" fill="#5b6572" font-size="9.5">board-server/public/js/util.js</text>
+
+    <rect x="540" y="208" width="260" height="42" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="552" y="226" font-family="Menlo,monospace" font-weight="600" fill="#111418">test/board-server.test.js</text>
+    <text x="552" y="242" fill="#5b6572" font-size="9.5">hardened-body H1 clones (server.test.js)</text>
+    <rect x="860" y="208" width="240" height="42" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="872" y="226" font-family="Menlo,monospace" fill="#111418">board-server/server.js</text>
+    <text x="872" y="242" font-family="Menlo,monospace" fill="#5b6572" font-size="9.5">guards · store · file · route surface</text>
+
+    <rect x="540" y="260" width="260" height="42" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="552" y="278" font-family="Menlo,monospace" font-weight="600" fill="#111418">test/board-e2e.test.js</text>
+    <text x="552" y="294" fill="#5b6572" font-size="9.5">injected clock + whenIdle (e2e.test.js)</text>
+    <rect x="860" y="260" width="240" height="42" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="872" y="278" fill="#111418">whole loop: fixture watcher →</text>
+    <text x="872" y="294" fill="#5b6572" font-size="9.5">publisher → board-server → public JSON</text>
+
+    <rect x="540" y="312" width="260" height="42" rx="8" fill="#fff" stroke="#c9d2dc"/>
+    <text x="552" y="330" font-family="Menlo,monospace" font-weight="600" fill="#111418">scripts/board-shots.js</text>
+    <text x="552" y="346" fill="#5b6572" font-size="9.5">playwright-core (already a dependency)</text>
+    <rect x="860" y="312" width="240" height="42" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="872" y="330" fill="#111418">board page at 320/390/768/1440</text>
+    <text x="872" y="346" fill="#5b6572" font-size="9.5">fresh + stale fixtures · overflow · motion</text>
+
+    <rect x="540" y="364" width="260" height="42" rx="8" fill="#fdf6e7" stroke="#b26a00"/>
+    <text x="552" y="382" font-weight="600" fill="#b26a00">Deployed smoke (SMK-1…9)</text>
+    <text x="552" y="398" fill="#5b6572" font-size="9.5">curl assertions + one 390px screenshot</text>
+    <rect x="860" y="364" width="240" height="42" rx="8" fill="#f6f8fa" stroke="#e3e7ec"/>
+    <text x="872" y="382" fill="#111418">https://vps-stock.daichenlab.com</text>
+    <text x="872" y="398" fill="#5b6572" font-size="9.5">+ every existing tenant domain (G5)</text>
+  </g>
+  <g stroke="#5b6572" stroke-width="1.6">
+    <line x1="800" y1="73" x2="858" y2="73" marker-end="url(#qaA)"/>
+    <line x1="800" y1="125" x2="858" y2="125" marker-end="url(#qaA)"/>
+    <line x1="800" y1="177" x2="858" y2="177" marker-end="url(#qaA)"/>
+    <line x1="800" y1="229" x2="858" y2="229" marker-end="url(#qaA)"/>
+    <line x1="800" y1="281" x2="858" y2="281" marker-end="url(#qaA)"/>
+    <line x1="800" y1="333" x2="858" y2="333" marker-end="url(#qaA)"/>
+    <line x1="800" y1="385" x2="858" y2="385" marker-end="url(#qaA)"/>
+  </g>
+</svg>
+</div>
+<figcaption>Five new/extended <code>node --test</code> files cover every shipped surface; the deployed smoke is the only layer that touches the real host. Everything below the smoke layer is deterministic and CI-safe.</figcaption>
+</figure>
+
+<div class="callout">
+<strong>QA-required test seams (implementation contract).</strong> The suite depends on the injection points the backend section already commits to, plus one addition: <code>src/publisher.js</code> accepts <code>{fetch, now, logger}</code> (the <code>telegram.js</code> pattern) <em>and a <code>debounceMs</code> option</em> (default 3000) so debounce tests pass ~15&nbsp;ms instead of sleeping 3&nbsp;s; the board-server factory accepts <code>{port: 0, snapshotFile, token, now, bodyTimeoutMs, logger}</code> exactly as <code>createPanelServer</code> does. No test may use real timers, the real network, a fixed port, or <code>~/.dmit-watch</code>.
+</div>
+</section>
+
+
+<section id="qa-unit">
+<h2>14 · Unit tests</h2>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 260" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="qaB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/></marker>
+  </defs>
+  <text x="30" y="30" font-size="12.5" font-weight="700" fill="#111418">INJECTION HARNESS — how each unit is isolated</text>
+
+  <rect x="30" y="52" width="330" height="150" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="46" y="76" font-size="12" font-weight="700" fill="#111418">publisher under test</text>
+  <g font-size="10" font-family="Menlo,monospace" fill="#5b6572">
+    <text x="46" y="98">fetch      ← captureFetch({failTimes,…})</text>
+    <text x="46" y="116">now        ← let clock = 1_700_000_000_000</text>
+    <text x="46" y="134">debounceMs ← 15 (never a real 3 s wait)</text>
+    <text x="46" y="152">logger     ← recording SILENT logger</text>
+  </g>
+  <text x="46" y="184" font-size="9.5" fill="#0a8a3a" font-weight="600">asserts on calls[] + publisher._state counters</text>
+
+  <rect x="400" y="52" width="330" height="150" rx="10" fill="#fff" stroke="#c9d2dc"/>
+  <text x="416" y="76" font-size="12" font-weight="700" fill="#111418">pure functions under test</text>
+  <g font-size="10" fill="#5b6572">
+    <text x="416" y="98" font-family="Menlo,monospace">buildState(store, …)   — real :memory: store</text>
+    <text x="416" y="116" font-family="Menlo,monospace">cardHTML(plan, ctx)    — JSON in, HTML out</text>
+    <text x="416" y="134" font-family="Menlo,monospace">freshTier(ageMs)       — literal ms arguments</text>
+    <text x="416" y="152" font-family="Menlo,monospace">fmtDur(ms) · esc(s)    — plain assertions</text>
+  </g>
+  <text x="416" y="184" font-size="9.5" fill="#0a8a3a" font-weight="600">no jsdom — modules are DOM-free at import time</text>
+
+  <rect x="770" y="52" width="320" height="150" rx="10" fill="#fdf6e7" stroke="#b26a00"/>
+  <text x="786" y="76" font-size="12" font-weight="700" fill="#b26a00">staleness boundary rule</text>
+  <text x="786" y="100" font-size="10" fill="#5b6572">Every threshold check is an injected age,</text>
+  <text x="786" y="116" font-size="10" fill="#5b6572">never a timer that waits:</text>
+  <g font-size="10" font-family="Menlo,monospace" fill="#111418">
+    <text x="786" y="140">freshTier(299_000) → 'aging' (T+4:59)</text>
+    <text x="786" y="158">freshTier(301_000) → 'stale' (T+5:01)</text>
+    <text x="786" y="176">freshTier(119_000/121_000) → fresh/aging</text>
+  </g>
+  <line x1="360" y1="127" x2="398" y2="127" stroke="#0b62d6" stroke-width="1.6" marker-end="url(#qaB)"/>
+  <line x1="730" y1="127" x2="768" y2="127" stroke="#0b62d6" stroke-width="1.6" marker-end="url(#qaB)"/>
+  <text x="30" y="238" font-size="10" fill="#5b6572">Both boundary pairs sit 1 s either side of AGING_MS = 120 000 and STALE_MS = 300 000 — the exact constants in board.js.</text>
+</svg>
+</div>
+<figcaption>Unit isolation: injected fetch/clock/debounce on the publisher, plain-argument pure functions everywhere else. The 5-minute stale boundary is proven at ±1 s without a single real timer.</figcaption>
+</figure>
+
+<h3>Mac publisher &amp; config — <code>test/publisher.test.js</code></h3>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>CFG-U1</td><td><code>loadPushConfig()</code>: both keys present, valid URL</td><td>Temp config file + env, as <code>config.test.js</code> does for <code>loadSecrets</code></td><td>Returns <code>{url, token}</code>; enable log names the host only — token string absent from every log line</td></tr>
+  <tr><td>CFG-U2</td><td>Neither key present (public-repo default)</td><td>Empty temp config</td><td>Returns <code>null</code>; one info line “public push not configured”; no warn</td></tr>
+  <tr><td>CFG-U3</td><td>Exactly one key present</td><td>Each key alone, two subtests</td><td>Returns <code>null</code>; warn names the <em>missing</em> key; never throws</td></tr>
+  <tr><td>CFG-U4</td><td>Malformed / non-http(s) <code>DMIT_WATCH_PUSH_URL</code></td><td><code>ftp://…</code>, <code>not a url</code></td><td>Returns <code>null</code> + warn with the parse problem; watcher boot unaffected</td></tr>
+  <tr><td>PUB-U1</td><td>Debounce coalesces a burst</td><td>5 <code>onEvent('family')</code> inside one <code>debounceMs</code> window; <code>captureFetch</code></td><td>Exactly one POST fires after the trailing window</td></tr>
+  <tr><td>PUB-U2</td><td>Envelope + headers exact</td><td>Inspect <code>calls[0]</code></td><td>Body is <code>{v:1, pushedAt: &lt;injected now&gt;, state}</code>; headers carry <code>authorization: Bearer &lt;token&gt;</code> + <code>content-type: application/json</code>; URL is the configured push URL</td></tr>
+  <tr><td>PUB-U3</td><td>Privacy filter</td><td>Store with alarmed plans + live watcher heartbeat; parse pushed body</td><td><code>state.watcher</code> absent; no plan carries <code>lastCheckMs</code>; every plan has <code>alarm:false</code> even though the local alarmed set is non-empty</td></tr>
+  <tr><td>PUB-U4</td><td>Live watchlist, not a boot copy</td><td>Mutate the injected watchlist getter between two pushes (simulating <code>/api/watchlist/remove</code>)</td><td>Second push body omits the removed family; first still had it</td></tr>
+  <tr><td>PUB-U5</td><td>In-flight skip, no queue</td><td>First injected fetch returns a never-settling promise; fire again</td><td><code>calls.length === 1</code>; <code>_state</code> skip counter incremented; no queued body exists anywhere</td></tr>
+  <tr><td>PUB-U6</td><td>Throwing fetch never escapes or delays polling</td><td>Rejecting fetch + the <code>unhandledRejection</code> listener idiom from <code>server.test.js</code> H1</td><td><code>onEvent</code> returns synchronously; zero unhandled rejections; a later <code>'family'</code> event triggers a fresh attempt (next poll IS the retry)</td></tr>
+  <tr><td>PUB-U7</td><td>No self-retry after failure</td><td>One failing push, then silence</td><td>Zero additional fetch calls until the next <code>onEvent</code></td></tr>
+  <tr><td>PUB-U8</td><td>Abort wiring</td><td>Assert <code>calls[0].init.signal</code> is an <code>AbortSignal</code>; call <code>stop()</code> mid-flight</td><td>Signal present (the 10 s <code>AbortSignal.timeout</code> path); <code>stop()</code> aborts the hanging fetch and clears the timer — <code>stop()</code> resolves promptly</td></tr>
+  <tr><td>PUB-U9</td><td>Token never in logs</td><td>Sentinel token <code>'TESTPUSHTOKEN…'</code>; run success + failure paths; scan recorded log lines</td><td>No log line contains the sentinel or the string <code>Authorization</code>; failure lines print the target host at most</td></tr>
+  <tr><td>PUB-U10</td><td>Throttled failure logging + recovery line</td><td>Advance injected <code>now()</code> across 10 min of failures, then one success</td><td>First failure logs immediately; then ≤ 1 line per 5 min; exactly one “push recovered” on success</td></tr>
+</table></div>
+
+<h3>Snapshot additions — <code>test/state.test.js</code> (extended)</h3>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>ST-U1</td><td><code>outSinceMs</code> mirrors <code>inSinceMs</code></td><td>Seeded <code>:memory:</code> store; drive an IN→OUT transition; <code>buildState()</code></td><td>OUT plan has <code>outSinceMs === row.last_change</code>; its <code>inSinceMs</code> is null</td></tr>
+  <tr><td>ST-U2</td><td>Seeded-OUT, never transitioned</td><td>Fresh seed, no transitions</td><td><code>outSinceMs === null</code> (render-if-present contract: board shows nothing)</td></tr>
+  <tr><td>ST-U3</td><td>IN plan symmetry</td><td>OUT→IN transition</td><td><code>inSinceMs</code> set exactly as today; <code>outSinceMs === null</code>; existing panel fields byte-identical otherwise</td></tr>
+  <tr><td>ST-U4</td><td><code>provider</code> pass-through</td><td>Watchlist with a <code>whmcs</code> family (HNL/VDS) + a DMIT family</td><td>WHMCS generation carries <code>provider:'whmcs'</code>; DMIT generation carries its family value or omits the field — never a fabricated default (the board supplies the DMIT fallback)</td></tr>
+</table></div>
+
+<h3>Board render — <code>test/board-render.test.js</code> (DOM-free, <code>frontend.test.js</code> idiom)</h3>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>FE-U1</td><td>Status matrix incl. the unknown→checking collapse</td><td><code>cardHTML(plan(...))</code> for <code>in / out / checking / unknown / 'garbage'</code></td><td><code>in</code>→<code>.s-in</code> + IN STOCK pill · <code>out</code>→<code>.s-out</code> + Out of Stock · <code>checking</code> <em>and</em> <code>unknown</code> <em>and</em> any unrecognized value→<code>.s-checking</code> + “Checking…”; raw status text never appears in markup</td></tr>
+  <tr><td>FE-U2</td><td>Buy anchor only on IN</td><td>IN vs OUT vs checking cards with <code>deepLink</code></td><td>Only IN renders <code>.buy</code>; anchor has <code>target="_blank" rel="noopener"</code>, href escaped</td></tr>
+  <tr><td>FE-U3</td><td>deepLink scheme gate</td><td><code>javascript:alert(1)</code>, <code>data:…</code> deepLinks</td><td>No anchor rendered at all — only <code>http(s):</code> URLs pass</td></tr>
+  <tr><td>FE-U4</td><td>Escaping</td><td>Plan name <code>&lt;script&gt;…</code> through <code>esc()</code>/<code>cardHTML</code></td><td>Output contains the entity-escaped form, never a live tag</td></tr>
+  <tr><td>FE-U5</td><td>Since-lines render-if-present</td><td>Field-presence matrix: IN±<code>inSinceMs</code>, OUT±<code>outSinceMs</code></td><td>IN+<code>inSinceMs</code> → “in stock · <code>fmtDur</code>”; OUT+<code>outSinceMs</code> → muted “out of stock · <code>fmtDur</code>”; absent → no footer element (no placeholder)</td></tr>
+  <tr><td>FE-U6</td><td><code>specs</code> / <code>popular</code> conditionals</td><td>Present, empty, absent variants</td><td><code>.specs</code> row only when non-empty; <code>.popular</code> badge only when <code>true</code></td></tr>
+  <tr><td>FE-U7</td><td>Freshness ladder boundaries — injected ages only</td><td><code>freshTier(119_000 / 121_000 / 299_000 / 301_000)</code></td><td><code>fresh / aging / aging / stale</code> — stale strictly after 5 min (T+4:59 shows no banner tier, T+5:01 does); no timers anywhere in the test</td></tr>
+  <tr><td>FE-U8</td><td><code>fmtDur()</code> formats</td><td>Literal ms values</td><td>“26m” · “2h 14m” · “3d 4h” exactly as the frontend section specifies</td></tr>
+  <tr><td>FE-U9</td><td>Section partition + ordering</td><td>Mixed snapshot through the section builder</td><td><code>status==='in'</code> → hero (snapshot encounter order); everything else → wall (config order untouched); no client-side sorting</td></tr>
+  <tr><td>FE-U10</td><td>Warming-up + empty states</td><td><code>state:null</code> doc; <code>counts.in===0</code>; waiting=0</td><td>Warming-up <code>.empty</code> copy; “Nothing in stock right now…” copy; “All watched plans are in stock…” copy — per the frontend state table</td></tr>
+</table></div>
+</section>
+
+
+<section id="qa-integration">
+<h2>15 · Integration tests — <code>test/board-server.test.js</code></h2>
+<p>One real board-server per test group via the factory (<code>{port: 0, snapshotFile: &lt;tmpdir&gt;/snapshot.json, token: sentinel, now: () =&gt; clock, bodyTimeoutMs, logger: SILENT}</code>), exercised over real loopback HTTP — the <code>server.test.js</code> harness shape. Every push-guard case clones the hardened-body H1 pattern: assert the status, <em>then assert the server still answers a follow-up GET</em>.</p>
+
+<h3>Push guard chain (clones of the H1 patterns)</h3>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>SRV-I1</td><td>401 — missing Authorization</td><td>Bare POST <code>/api/push</code></td><td>401, body exactly <code>{error:"unauthorized"}</code>; follow-up <code>GET /api/state</code> still 200</td></tr>
+  <tr><td>SRV-I2</td><td>401 — wrong token</td><td><code>Bearer WRONG</code>; also a wrong-<em>length</em> token</td><td>Same uniform 401 body for both (hash-then-<code>timingSafeEqual</code> never throws on length); server still up</td></tr>
+  <tr><td>SRV-I3</td><td><span class="warn">Fail-closed</span> — server booted with NO token</td><td>Factory with <code>token: undefined</code></td><td>Every push → 401 even with a plausible Bearer; one loud boot warning; <code>GET /api/state</code> keeps serving the file's content — misdeploy degrades to staleness, never an open write</td></tr>
+  <tr><td>SRV-I4</td><td>Happy path: push → visible read</td><td>Valid envelope with injected <code>now = T0</code></td><td>200 <code>{ok:true, receivedAt:T0}</code>; <code>GET /api/state</code> returns <code>{v:1, pushedAt, receivedAt:T0, now, state}</code> with header <code>Cache-Control: no-store</code></td></tr>
+  <tr><td>SRV-I5</td><td>400 — malformed JSON</td><td><code>'{ this is : not json'</code> (H1 clone)</td><td>400; server answers the next request</td></tr>
+  <tr><td>SRV-I6</td><td><strong>Realistic-size headroom</strong> under the 64 KB cap</td><td>Build the full <strong>37-plan</strong> snapshot from <code>loadWatchlist()</code> + a seeded <code>:memory:</code> store via <code>buildState()</code>, wrap in the envelope</td><td>Serialized envelope measured &lt; 64 KB (expected ≈ 12 KB — assert the actual byte count ≤ 32 768 to prove ≥ 2× headroom) and the push is accepted 200 with all 37 plans readable back</td></tr>
+  <tr><td>SRV-I7</td><td>413 — oversized body</td><td>&gt; 64 KB body (<code>'x'.repeat(70*1024)</code> idiom)</td><td>413, not a dead socket; follow-up GET ok</td></tr>
+  <tr><td>SRV-I8</td><td>408 — stalled body</td><td>Raw <code>net</code> socket declaring <code>Content-Length</code> but sending nothing; short <code>bodyTimeoutMs</code> (the <code>server.test.js</code> raw-socket clone)</td><td>408 within the timeout; no unhandledRejection escapes (listener idiom)</td></tr>
+  <tr><td>SRV-I9</td><td>422 — wrong shape</td><td>Three variants: <code>v:2</code> · <code>pushedAt:"soon"</code> · <code>state.datacenters:{}</code></td><td>422 each; the in-memory doc is unchanged (a prior good snapshot still serves)</td></tr>
+  <tr><td>SRV-I10</td><td>CSRF guard deliberately NOT ported</td><td>Valid-token push with <em>no</em> <code>Origin</code> header; valid-token push with a foreign <code>Origin</code> + <code>sec-fetch-site: cross-site</code></td><td>Both 200 — the bearer token is the entire write-auth; an Origin-style guard would only reject legitimate Mac pushes (explicit regression against cargo-culting <code>src/server.js</code>'s guard)</td></tr>
+</table></div>
+
+<h3>Snapshot store, restart survival &amp; headers</h3>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>SRV-I11</td><td>Warming up is a designed state</td><td>Fresh factory, missing file</td><td><code>GET /api/state</code> → 200 <code>{v:null, pushedAt:null, receivedAt:null, now, state:null}</code> (never 404/500); <code>GET /healthz</code> → 200 <code>{ok:true, receivedAt:null, ageMs:null}</code></td></tr>
+  <tr><td>SRV-I12</td><td><strong>Restart survival with honest age</strong></td><td>Push at <code>T0</code> → <code>stop()</code> → NEW factory instance on the <em>same</em> <code>snapshotFile</code> with <code>now = T0 + 30 min</code></td><td><code>/api/state</code> returns the same state with <code>receivedAt === T0</code> (persisted, not re-stamped); <code>/healthz.ageMs === 1_800_000</code> — a restart while the Mac is offline shows old age, never fake freshness</td></tr>
+  <tr><td>SRV-I13</td><td>Corrupt-file boots, all variants</td><td>Write to <code>snapshotFile</code> before boot: (a) garbage bytes, (b) truncated JSON, (c) valid JSON of the wrong shape; plus (d) missing</td><td>All four boot to the clean warming-up state and answer requests; (a)–(c) rename the bad file aside to <code>snapshot.json.corrupt</code> + one warn; the process never crashes</td></tr>
+  <tr><td>SRV-I14</td><td>Atomic mirror, serialized writes</td><td>After an accepted push, read the file; then fire two pushes concurrently</td><td>File parses to the exact accepted doc; no <code>.tmp</code> file remains; after the concurrent pair the file equals the last-accepted doc (promise-chain serialization)</td></tr>
+  <tr><td>SRV-I15</td><td>Write failure degrades durability, not availability</td><td><code>snapshotFile</code> pointed into a non-writable directory</td><td>Push still returns 200; <code>GET /api/state</code> serves from memory; throttled warn logged</td></tr>
+  <tr><td>SRV-I16</td><td>Header matrix</td><td>One GET per route, assert headers</td><td><code>/api/state</code> + <code>/healthz</code>: <code>no-store</code> · <code>/</code>: <code>no-cache</code> · <code>board.css</code>/<code>js/*</code>: <code>public, max-age=300</code>; every response carries the <code>SECURITY_HEADERS</code> block (nosniff, <code>x-frame-options: DENY</code>, <code>referrer-policy: no-referrer</code>, CSP <code>default-src 'self'</code>)</td></tr>
+  <tr><td>SRV-I17</td><td>Static serving + traversal</td><td><code>GET /</code>, each asset, <code>/../../etc/passwd</code>, unknown path, <code>HEAD /api/state</code></td><td>Page HTML contains the mockup IDs (<code>#freshPill #staleBanner #instockGrid #waitingGroups</code>); traversal → 403; unknown → 404; HEAD → 200 with empty body</td></tr>
+</table></div>
+
+<h3>Public-surface audit &amp; the no-Telegram guarantee</h3>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>SRV-I18</td><td><strong>Route-manifest sweep</strong> — read-only by proof, not by sampling</td><td>Iterate a literal manifest <code>['/', '/board.css', '/js/board.js', '/js/render.js', '/js/util.js', '/api/state', '/healthz']</code> × methods <code>POST/PUT/DELETE/PATCH</code></td><td>Every combination → 405 with <code>Allow: GET</code>; <code>GET /api/push</code> → 405 with <code>Allow: POST</code>; panel-only paths <code>GET /api/silence</code> and <code>GET /api/watchlist/remove</code> → 404 (and 405 as POST — the method gate fires first). The manifest doubles as the G4 audit record</td></tr>
+  <tr><td>SRV-I19</td><td>No-Telegram — static import graph</td><td>Read <code>board-server/server.js</code> source in the test; parse its <code>import</code> specifiers</td><td>Only <code>node:</code> builtins; zero imports from <code>../src/</code> (especially never <code>src/telegram.js</code>); the string <code>telegram</code> does not appear in the file</td></tr>
+  <tr><td>SRV-I20</td><td>No-Telegram — runtime zero-egress</td><td>Stub <code>globalThis.fetch</code> with a recorder before boot; run a full push + read + healthz cycle</td><td>The recorder captured <strong>zero</strong> calls — the server never makes an outbound request of any kind (Telegram or otherwise)</td></tr>
+  <tr><td>SRV-I21</td><td>Token never echoed anywhere</td><td>Sentinel token; collect every response body from SRV-I1…I18 plus the page HTML and all recorded log lines; substring-scan</td><td>The sentinel appears in exactly zero response bodies, zero GET payloads, zero HTML bytes, zero log lines</td></tr>
+</table></div>
+</section>
+
+
+<section id="qa-e2e">
+<h2>16 · E2E — local full loop, visual pass, deployed smoke</h2>
+
+<h3>Local full loop — <code>test/board-e2e.test.js</code></h3>
+<p>The <code>test/e2e.test.js</code> harness extended by one hop: fixture <code>pageSource</code> → watcher (<code>now: () =&gt; clock</code>, frozen cadence, polls driven by <code>pollSettled()</code>) → scheduler fan-out → composed broadcast → <strong>real publisher</strong> (tiny <code>debounceMs</code>, real <code>fetch</code>) → <strong>real in-process board-server</strong> on <code>127.0.0.1:0</code>. Telegram stays a recorded mock; <code>scheduler.whenIdle()</code> plus a publisher idle-await settle each step.</p>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>E2E-1</td><td>Steady all-OUT publishes a clean public board</td><td><code>all-out.txt</code> fixture → <code>pollSettled()</code> → await push</td><td>Public <code>/api/state</code>: all 37 plans <span class="out">out</span>, <code>counts.in === 0</code>, no <code>watcher</code> key, no <code>lastCheckMs</code> on any plan, <code>alarm:false</code> everywhere</td></tr>
+  <tr><td>E2E-2</td><td>Restock flip reaches the public JSON on the next push (PRD G2)</td><td>Swap fixture to <code>orderable.synthetic.txt</code> → <code>pollSettled()</code></td><td>Public plan flips to <span class="in">in</span> with <code>inSinceMs</code> set after exactly one push; the Mac's Telegram mock recorded its usual single edge alert — alerting path bit-identical</td></tr>
+  <tr><td>E2E-3</td><td>Publisher failure never touches watching/alerting</td><td><code>await boardServer.stop()</code> → two more <code>pollSettled()</code> cycles (the H1 rejection-listener idiom active)</td><td>Polls resolve, Telegram alerts still fire, zero unhandled rejections; publisher <code>_state</code> shows throttled failures; restarting the server → next poll's push lands (next poll IS the retry)</td></tr>
+  <tr><td>E2E-4</td><td>Local-panel ↔ public parity (D2)</td><td>Fetch both <code>/api/state</code>s in the same settled state</td><td>Same plan ids, statuses, counts on both; only the public one lacks <code>watcher</code>/<code>lastCheckMs</code>/live <code>alarm</code></td></tr>
+</table></div>
+
+<h3>Visual pass — <code>scripts/board-shots.js</code> (playwright-core, pre-merge)</h3>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>What</th><th>How (file + idiom)</th><th>Pass criterion</th></tr>
+  <tr><td>E2E-V1</td><td>Screenshots, fresh + stale, four widths</td><td>Boot a local board-server twice from fixture snapshot files: <code>receivedAt = now</code> (fresh) and <code>receivedAt = now − 10 min</code> (stale — no waiting, the fixture ages the data); shoot 320/390/768/1440</td><td>8 PNGs reviewed at the gate: fresh board full-color; stale shows the ⚠ banner + dimmed board with a crisp sticky zone</td></tr>
+  <tr><td>E2E-V2</td><td>No horizontal overflow</td><td><code>page.evaluate</code> at each width</td><td><code>document.documentElement.scrollWidth &lt;= clientWidth</code> at 320/390/768/1024/1440</td></tr>
+  <tr><td>E2E-V3</td><td>Reduced motion</td><td><code>emulateMedia({reducedMotion:'reduce'})</code> on the stale fixture</td><td>No pulse/FLIP animation styles active; all states legible via color + copy</td></tr>
+</table></div>
+
+<h3>Deployed smoke — the live page at <code>https://vps-stock.daichenlab.com</code></h3>
+
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1120 420" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="qaC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/></marker>
+  </defs>
+  <g font-size="12" font-weight="700" fill="#111418" text-anchor="middle">
+    <rect x="60" y="16" width="200" height="34" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/><text x="160" y="38">operator shell (curl)</text>
+    <rect x="460" y="16" width="200" height="34" rx="8" fill="#eef3fb" stroke="#c9d2dc"/><text x="560" y="38">live vps-stock service</text>
+    <rect x="840" y="16" width="220" height="34" rx="8" fill="#f6f8fa" stroke="#c9d2dc"/><text x="950" y="38">other tenant domains</text>
+  </g>
+  <line x1="160" y1="50" x2="160" y2="300" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <line x1="560" y1="50" x2="560" y2="300" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+  <line x1="950" y1="50" x2="950" y2="300" stroke="#c9d2dc" stroke-dasharray="4 4"/>
+
+  <g font-size="10.5" fill="#111418">
+    <line x1="160" y1="78" x2="558" y2="78" stroke="#5b6572" stroke-width="1.8" marker-end="url(#qaC)"/>
+    <text x="360" y="70" text-anchor="middle">SMK-1  GET /healthz → 200 · ok:true · ageMs finite (TLS cert implicitly proven)</text>
+    <line x1="160" y1="112" x2="558" y2="112" stroke="#5b6572" stroke-width="1.8" marker-end="url(#qaC)"/>
+    <text x="360" y="104" text-anchor="middle">SMK-2  GET /api/state → 200 · Cache-Control: no-store · 37 plans · no watcher/lastCheckMs</text>
+    <line x1="160" y1="146" x2="558" y2="146" stroke="#5b6572" stroke-width="1.8" marker-end="url(#qaC)"/>
+    <text x="360" y="138" text-anchor="middle">SMK-3  GET / → 200 · title + #staleBanner present · no noindex</text>
+    <line x1="160" y1="180" x2="558" y2="180" stroke="#c62828" stroke-width="1.8" marker-end="url(#qaC)"/>
+    <text x="360" y="172" text-anchor="middle" fill="#c62828">SMK-4  hostile probes → 405 / 401, never 200</text>
+    <line x1="160" y1="214" x2="558" y2="214" stroke="#5b6572" stroke-width="1.8" marker-end="url(#qaC)"/>
+    <text x="360" y="206" text-anchor="middle">SMK-5  security-header sweep on every route</text>
+    <line x1="160" y1="248" x2="948" y2="248" stroke="#b26a00" stroke-width="1.8" marker-end="url(#qaC)"/>
+    <text x="560" y="240" text-anchor="middle" fill="#b26a00" font-weight="700">SMK-6  after the Caddy edge RESTART: every existing tenant vhost still answers (G5)</text>
+    <line x1="160" y1="282" x2="558" y2="282" stroke="#0b62d6" stroke-width="1.8" marker-end="url(#qaC)"/>
+    <text x="360" y="274" text-anchor="middle" fill="#0b62d6" font-weight="700">SMK-7  one headless screenshot · 390 × 844</text>
+  </g>
+
+  <rect x="40" y="318" width="1050" height="84" rx="10" fill="#fdf6e7" stroke="#b26a00"/>
+  <text x="58" y="342" font-size="11.5" font-weight="700" fill="#b26a00">SMK-8/9 · STALENESS DRILL (Gate-3 proof of PRD G3) — the only check that intentionally waits</text>
+  <g font-size="10" fill="#111418">
+    <text x="58" y="364">stop the Mac watcher → poll the live page → ⚠ “data may be stale” banner visible after &gt; 5 min (screenshot it)</text>
+    <text x="58" y="382">restart the watcher → banner clears within ~35 s (one 30 s board poll + jitter) and the pill returns to green (screenshot it)</text>
+  </g>
+</svg>
+</div>
+<figcaption>Deployed smoke: seven immediate curl/screenshot checks plus the two-step staleness drill. SMK-6 is the house-rule tenant sweep that must follow every Caddy edge restart.</figcaption>
+</figure>
+
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>Command (from the operator shell)</th><th>Pass criterion</th></tr>
+  <tr><td>SMK-1</td><td><code>curl -fsS https://vps-stock.daichenlab.com/healthz</code></td><td>Exit 0 (valid cert, no <code>-k</code>); JSON <code>ok:true</code>, <code>ageMs</code> a finite number</td></tr>
+  <tr><td>SMK-2</td><td><code>curl -fsSD- https://vps-stock.daichenlab.com/api/state</code></td><td>200; <code>cache-control: no-store</code>; <code>content-type: application/json</code>; body has non-null <code>receivedAt</code>, 37 plans, and contains neither <code>"watcher"</code> nor <code>"lastCheckMs"</code></td></tr>
+  <tr><td>SMK-3</td><td><code>curl -fsS https://vps-stock.daichenlab.com/</code></td><td>HTML contains <code>&lt;title&gt;VPS Stock Watch — live DMIT Premium availability&lt;/title&gt;</code> and <code>id="staleBanner"</code>; contains no <code>noindex</code></td></tr>
+  <tr><td>SMK-4</td><td><code>curl -si -X POST …/api/state</code> · <code>curl -si -X POST …/api/push</code> · <code>curl -si …/api/push</code></td><td>405 + <code>Allow: GET</code> · 401 <code>{error:"unauthorized"}</code> · 405 + <code>Allow: POST</code></td></tr>
+  <tr><td>SMK-5</td><td><code>curl -fsSD- …/ | grep -iE 'x-content-type|x-frame|referrer|security-policy'</code></td><td>nosniff · DENY · no-referrer · CSP all present on the page and both JSON routes</td></tr>
+  <tr><td>SMK-6</td><td>HTTP status probe of <strong>every</strong> existing tenant domain on the box, run immediately after the edge restart</td><td>Each returns its pre-change status — zero tenant disruption (house rule / PRD G5)</td></tr>
+  <tr><td>SMK-7</td><td>Headless Playwright, viewport 390 × 844, screenshot the live URL</td><td>PNG artifact shows the rendered board: freshness pill, stats strip, plan cards — attached to the Gate-3 review</td></tr>
+  <tr><td>SMK-8</td><td>Stop the launchd watcher; reload the live page after &gt; 5 min</td><td>⚠ stale banner visible, board dimmed, pill shows the true age (screenshot)</td></tr>
+  <tr><td>SMK-9</td><td>Restart the watcher; watch the live page</td><td>Banner clears within ~35 s (30 s poll + 0–5 s jitter); pill green (screenshot)</td></tr>
+</table></div>
+</section>
+
+
+<section id="qa-acceptance">
+<h2>17 · Acceptance matrix — PRD goals → concrete checks</h2>
+<div class="tblwrap"><table>
+  <tr><th>Goal</th><th>PRD criterion</th><th>Proven by</th><th>Verdict gate</th></tr>
+  <tr><td><strong>G1</strong> Live public board</td><td>Cold visitor sees current stock over HTTPS, no auth, all 37 plans with status/price/buy link</td><td>SMK-1/2/3/7 on the live URL; FE-U1/2 + SRV-I17 for the rendered card content</td><td>Gate 3 — all four smoke checks green + screenshot reviewed</td></tr>
+  <tr><td><strong>G2</strong> Freshness ≤ ~2 poll cycles</td><td>Local flip → public JSON updated on the next push</td><td>E2E-2 (deterministic: one fixture flip → one push → public <code>in</code>); live spot-check during the SMK-9 restart (board recovers within one cycle)</td><td>npm test + Gate-3 observation</td></tr>
+  <tr><td><strong>G3</strong> Honest staleness</td><td>Age always shown; &gt; 5 min → visible stale banner; recovers on restart</td><td>FE-U7 (boundary at ±1 s around 300 000 ms, injected ages); SRV-I12 (honest <code>receivedAt</code> across restarts); E2E-V1 stale fixture screenshots; SMK-8/9 live drill</td><td>npm test + Gate-3 drill screenshots</td></tr>
+  <tr><td><strong>G4</strong> Read-only &amp; quiet</td><td>Audit of the public surface finds GETs only (+ the one authenticated POST); no alarm/audio/notifications/Telegram</td><td>SRV-I18 route-manifest sweep; SRV-I19/I20 no-Telegram two ways; SEC-3 bundle grep (no <code>Audio</code>/<code>Notification</code>/<code>EventSource</code>/mutating fetch); PUB-U3 + E2E-1 (no operator fields on the wire)</td><td>npm test + SEC checklist at PR review</td></tr>
+  <tr><td><strong>G5</strong> Multi-tenant-safe deploy</td><td>All existing tenant sites still answer after deploy</td><td>SMK-6 tenant sweep immediately after the Caddy edge restart</td><td>Gate 3 — sweep output pasted into the deploy log</td></tr>
+  <tr><td><strong>G6</strong> No secrets in the public repo</td><td>Secret scan on the PR is clean; token exists only in the Mac config + box env file</td><td>SEC-1…SEC-5 below; PUB-U9 + SRV-I21 (token never logged/echoed at runtime)</td><td>PR review — SEC commands run against the branch, zero hits</td></tr>
+</table></div>
+<p class="sub">A <span class="warn">FAIL</span> on any G-row check blocks Gate 3; the beta feature-coverage pass re-runs E2E-1…4 plus the SMK table after any substantial fix round.</p>
+</section>
+
+
+<section id="qa-secrets">
+<h2>18 · Secret hygiene — public-repo checks</h2>
+<p>Run before the PR is opened and again at review. Every command must produce <strong>no output</strong> (or the stated expected output) against the full branch.</p>
+<div class="tblwrap"><table>
+  <tr><th>ID</th><th>Check</th><th>Command / method</th><th>Pass criterion</th></tr>
+  <tr><td>SEC-1</td><td>Only <code>.example</code> files ship</td><td><code>git ls-files 'board-server/**' 'ops/**' | grep -E '\.env$|config$'</code></td><td>No tracked real env/config file; <code>board-server/.env.example</code> exists with placeholder values + the <code>openssl rand -hex 32</code> recipe; the Mac-side example lines are commented placeholders</td></tr>
+  <tr><td>SEC-2</td><td>No token-shaped values anywhere</td><td><code>git grep -nE "(PUSH_TOKEN|DMIT_WATCH_PUSH_TOKEN)\s*=\s*['\"]?[A-Fa-f0-9]{32,}"</code> and <code>git grep -inE "bearer +[a-f0-9]{32,}"</code></td><td>Zero hits — tests use obvious sentinels (<code>TESTPUSHTOKEN…</code>, the <code>telegram.test.js</code> convention), never hex-shaped strings</td></tr>
+  <tr><td>SEC-3</td><td>Read-only public bundle (the frontend section's CI audit)</td><td><code>grep -rnE "method:|EventSource|new Audio|Notification|\.dmit-watch" board-server/public/</code></td><td>No output — the shipped bundle contains no mutating fetch, no SSE, no audio, no notification API, no local-config reference</td></tr>
+  <tr><td>SEC-4</td><td>No private infrastructure in shipped files</td><td><code>grep -rnE "[0-9]{1,3}(\.[0-9]{1,3}){3}" board-server/ ops/ src/</code> with <code>127.0.0.1</code>/<code>0.0.0.0</code> allowlisted; eyeball for SSH aliases and box paths beyond the generic <code>/opt/&lt;app&gt;</code> placeholder</td><td>Only loopback/wildcard addresses appear; deploy docs stay generic (house rule)</td></tr>
+  <tr><td>SEC-5</td><td>Runtime never leaks what the repo doesn't hold</td><td>Covered in-suite: PUB-U9 (Mac logs), SRV-I21 (server responses, page HTML, server logs)</td><td>Both green in <code>npm test</code> — the sentinel token appears in zero log lines and zero response bytes</td></tr>
+</table></div>
+
+<div class="callout">
+<strong>Definition of done for QA.</strong> <code>npm test</code> green (all unit + integration + local E2E, no network, no real timers) · <code>scripts/board-shots.js</code> artifacts reviewed (fresh + stale × 4 widths, overflow + reduced-motion asserts passing) · SEC-1…4 clean on the branch · SMK-1…9 executed against the live deployment with the tenant sweep and both staleness-drill screenshots attached to the Gate-3 review.
+</div>
+</section>
+
+</main>
+</body>
+</html>
