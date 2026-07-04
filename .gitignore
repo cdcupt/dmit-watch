@@ -4,6 +4,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+ops/*.env
+!ops/*.env.example
 *.pem
 # runtime
 *.log
