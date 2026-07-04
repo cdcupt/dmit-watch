@@ -1,0 +1,39 @@
+# vps-stock — public board server container (TECH §6).
+#
+# Zero npm deps → no Dockerfile, no build, no registry: the stock node image
+# runs the bind-mounted board-server/ directory as-is. Layout on the box:
+#
+#   <app root>/vps-stock-compose.yml   (this file)
+#   <app root>/app/                    ← board-server/ copied from the repo (ro)
+#   <app root>/data/                   ← snapshot.json lives here (rw, survives redeploys)
+#   <app root>/vps-stock.env           ← from vps-stock.env.example, chmod 600
+#
+# The container binds 0.0.0.0:8080 INSIDE (a 127.0.0.1 bind inside the container
+# would be unreachable through the port map); the host mapping below is
+# loopback-only, so nothing but the shared Caddy edge can reach it.
+# VPS_STOCK_PORT is compose interpolation (shell env or a .env file beside this
+# file) — pick a free loopback port on the box; it must match the Caddy snippet.
+
+services:
+  vps-stock:
+    image: node:24-alpine
+    container_name: vps-stock
+    command: node /app/server.js
+    user: node
+    ports:
+      - "127.0.0.1:${VPS_STOCK_PORT:-8106}:8080"
+    volumes:
+      - ./app:/app:ro
+      - ./data:/data
+    env_file:
+      - ./vps-stock.env
+    read_only: true
+    mem_limit: 256m
+    cpus: "0.50"
+    restart: unless-stopped
+    healthcheck:
+      # No curl/wget in the slim image — node's own fetch probes /healthz.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 60s
+      timeout: 10s
+      retries: 3

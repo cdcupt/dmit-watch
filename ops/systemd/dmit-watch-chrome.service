@@ -1,0 +1,34 @@
+# dmit-watch dedicated headless Chrome (TECH §6 watcher-host unit).
+#
+# Linux counterpart of scripts/start.sh step 1: a SEPARATE --user-data-dir on
+# the CDP debug port (Chrome 136+ refuses the port on the default profile), a
+# realistic desktop User-Agent (--headless=new otherwise advertises a
+# "HeadlessChrome/…" token that Cloudflare fingerprints and 403s), and
+# --remote-allow-origins pinned to the exact 127.0.0.1 origin src/chrome.js
+# connects with. Runs as the dedicated non-root user so Chrome keeps its normal
+# sandbox — --no-sandbox is never needed (running as root would force it; don't).
+#
+# Install: cp to /etc/systemd/system/ && systemctl daemon-reload
+#          systemctl enable --now dmit-watch-chrome
+
+[Unit]
+Description=dmit-watch dedicated headless Chrome (CDP on 127.0.0.1:9444)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=dmitwatch
+ExecStart=/usr/bin/google-chrome \
+    --headless=new \
+    --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36" \
+    --user-data-dir=/home/dmitwatch/.dmit-watch/chrome-profile \
+    --remote-debugging-address=127.0.0.1 \
+    --remote-debugging-port=9444 \
+    --remote-allow-origins=http://127.0.0.1:9444 \
+    --no-first-run \
+    --no-default-browser-check
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,596 @@
+{
+  "generatedAt": 1783137600000,
+  "counts": {
+    "total": 37,
+    "in": 10,
+    "waiting": 27,
+    "byLoc": {
+      "lax": 16,
+      "hkg": 10,
+      "tyo": 7,
+      "hnl": 4
+    },
+    "byGen": {
+      "as3": 18,
+      "an4": 5,
+      "an5": 10,
+      "vds": 4
+    }
+  },
+  "datacenters": [
+    {
+      "loc": "lax",
+      "code": "LAX",
+      "city": "Los Angeles",
+      "country": "United States",
+      "flag": "🇺🇸",
+      "generations": [
+        {
+          "key": "lax/as3",
+          "gen": "as3",
+          "label": "AS3",
+          "cpu": "EPYC 7003",
+          "plans": [
+            {
+              "id": "lax-as3-tiny",
+              "name": "LAX.AS3.Pro.TINY",
+              "size": "TINY",
+              "price": "$10.90",
+              "period": "mo",
+              "popular": true,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782187200000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "lax-as3-pocket",
+              "name": "LAX.AS3.Pro.POCKET",
+              "size": "Pocket",
+              "price": "$16.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782187200000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "lax-as3-starter",
+              "name": "LAX.AS3.Pro.STARTER",
+              "size": "STARTER",
+              "price": "$34.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782784800000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "lax-as3-mini",
+              "name": "LAX.AS3.Pro.MINI",
+              "size": "MINI",
+              "price": "$62.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782187200000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "lax-as3-micro",
+              "name": "LAX.AS3.Pro.MICRO",
+              "size": "MICRO",
+              "price": "$87.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1781582400000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "lax-as3-medium",
+              "name": "LAX.AS3.Pro.MEDIUM",
+              "size": "MEDIUM",
+              "price": "$199.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1781582400000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=as3&language=english"
+            }
+          ]
+        },
+        {
+          "key": "lax/an4",
+          "gen": "an4",
+          "label": "AN4",
+          "cpu": "EPYC 9004",
+          "plans": [
+            {
+              "id": "lax-an4-mini",
+              "name": "LAX.AN4.Pro.MINI",
+              "size": "MINI",
+              "price": "$72.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782619200000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an4&language=english"
+            },
+            {
+              "id": "lax-an4-micro",
+              "name": "LAX.AN4.Pro.MICRO",
+              "size": "MICRO",
+              "price": "$102.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782619200000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an4&language=english"
+            },
+            {
+              "id": "lax-an4-medium",
+              "name": "LAX.AN4.Pro.MEDIUM",
+              "size": "MEDIUM",
+              "price": "$239.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1780286400000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an4&language=english"
+            },
+            {
+              "id": "lax-an4-large",
+              "name": "LAX.AN4.Pro.LARGE",
+              "size": "LARGE",
+              "price": "$459.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1780286400000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an4&language=english"
+            },
+            {
+              "id": "lax-an4-giant",
+              "name": "LAX.AN4.Pro.GIANT",
+              "size": "GIANT",
+              "price": "$929.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an4&language=english"
+            }
+          ]
+        },
+        {
+          "key": "lax/an5",
+          "gen": "an5",
+          "label": "AN5",
+          "cpu": "EPYC 9005",
+          "plans": [
+            {
+              "id": "lax-an5-mini",
+              "name": "LAX.AN5.Pro.MINI",
+              "size": "MINI",
+              "price": "$79.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782964800000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "lax-an5-micro",
+              "name": "LAX.AN5.Pro.MICRO",
+              "size": "MICRO",
+              "price": "$110.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782964800000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "lax-an5-medium",
+              "name": "LAX.AN5.Pro.MEDIUM",
+              "size": "MEDIUM",
+              "price": "$289.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1781323200000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "lax-an5-large",
+              "name": "LAX.AN5.Pro.LARGE",
+              "size": "LARGE",
+              "price": "$499.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1781323200000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "lax-an5-giant",
+              "name": "LAX.AN5.Pro.GIANT",
+              "size": "GIANT",
+              "price": "$1009.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=los-angeles&network=premium&generation=an5&language=english"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "loc": "hkg",
+      "code": "HKG",
+      "city": "Hong Kong",
+      "country": "China",
+      "flag": "🇭🇰",
+      "generations": [
+        {
+          "key": "hkg/as3",
+          "gen": "as3",
+          "label": "AS3",
+          "cpu": "EPYC 7003",
+          "plans": [
+            {
+              "id": "hkg-as3-tiny",
+              "name": "HKG.AS3.Pro.TINY",
+              "size": "TINY",
+              "price": "$39.90",
+              "period": "mo",
+              "popular": true,
+              "status": "in",
+              "inSinceMs": 1783044000000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "hkg-as3-starter",
+              "name": "HKG.AS3.Pro.STARTER",
+              "size": "STARTER",
+              "price": "$79.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1783044000000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "hkg-as3-mini",
+              "name": "HKG.AS3.Pro.MINI",
+              "size": "MINI",
+              "price": "$126.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1782860400000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "hkg-as3-micro",
+              "name": "HKG.AS3.Pro.MICRO",
+              "size": "MICRO",
+              "price": "$179.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1783044000000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "hkg-as3-medium",
+              "name": "HKG.AS3.Pro.MEDIUM",
+              "size": "MEDIUM",
+              "price": "$239.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1782360000000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=as3&language=english"
+            }
+          ]
+        },
+        {
+          "key": "hkg/an5",
+          "gen": "an5",
+          "label": "AN5",
+          "cpu": "EPYC 9005",
+          "plans": [
+            {
+              "id": "hkg-an5-mini",
+              "name": "HKG.AN5.Pro.MINI",
+              "size": "MINI",
+              "price": "$149.90",
+              "period": "mo",
+              "popular": true,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1783083600000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "hkg-an5-micro",
+              "name": "HKG.AN5.Pro.MICRO",
+              "size": "MICRO",
+              "price": "$199.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1783083600000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "hkg-an5-medium",
+              "name": "HKG.AN5.Pro.MEDIUM",
+              "size": "MEDIUM",
+              "price": "$279.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782705600000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "hkg-an5-large",
+              "name": "HKG.AN5.Pro.LARGE",
+              "size": "LARGE",
+              "price": "$359.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782705600000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+            },
+            {
+              "id": "hkg-an5-giant",
+              "name": "HKG.AN5.Pro.GIANT",
+              "size": "GIANT",
+              "price": "$759.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1780804800000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=hong-kong&network=premium&generation=an5&language=english"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "loc": "tyo",
+      "code": "TYO",
+      "city": "Tokyo",
+      "country": "Japan",
+      "flag": "🇯🇵",
+      "generations": [
+        {
+          "key": "tyo/as3",
+          "gen": "as3",
+          "label": "AS3",
+          "cpu": "EPYC 7003",
+          "plans": [
+            {
+              "id": "tyo-as3-tiny",
+              "name": "TYO.AS3.Pro.TINY",
+              "size": "TINY",
+              "price": "$21.90",
+              "period": "mo",
+              "popular": true,
+              "status": "in",
+              "inSinceMs": 1783134780000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "tyo-as3-starter",
+              "name": "TYO.AS3.Pro.STARTER",
+              "size": "STARTER",
+              "price": "$45.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1783134780000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "tyo-as3-mini",
+              "name": "TYO.AS3.Pro.MINI",
+              "size": "MINI",
+              "price": "$89.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1783116000000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "tyo-as3-micro",
+              "name": "TYO.AS3.Pro.MICRO",
+              "size": "MICRO",
+              "price": "$189.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1782936000000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "tyo-as3-medium",
+              "name": "TYO.AS3.Pro.MEDIUM",
+              "size": "MEDIUM",
+              "price": "$320.90",
+              "period": "mo",
+              "popular": false,
+              "status": "in",
+              "inSinceMs": 1782936000000,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "tyo-as3-large",
+              "name": "TYO.AS3.Pro.LARGE",
+              "size": "LARGE",
+              "price": "$429.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1783108800000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+            },
+            {
+              "id": "tyo-as3-giant",
+              "name": "TYO.AS3.Pro.GIANT",
+              "size": "GIANT",
+              "price": "$829.90",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1781928000000,
+              "alarm": false,
+              "deepLink": "https://www.dmit.io/cart.php?region=tokyo&network=premium&generation=as3&language=english"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "loc": "hnl",
+      "code": "HNL",
+      "city": "Honolulu",
+      "country": "United States",
+      "flag": "🇺🇸",
+      "generations": [
+        {
+          "key": "hnl/vds",
+          "gen": "vds",
+          "label": "VDS",
+          "cpu": "AMD 7940HS · qq.pw residential",
+          "provider": "whmcs",
+          "plans": [
+            {
+              "id": "hnl-vds-intern",
+              "name": "Dedicate IP VDS Intern",
+              "size": "Intern",
+              "price": "$35.00",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vds-entry"
+            },
+            {
+              "id": "hnl-vds-reliable",
+              "name": "Dedicate IP VDS Reliable",
+              "size": "Reliable",
+              "price": "$35.00",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782878400000,
+              "alarm": false,
+              "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vps"
+            },
+            {
+              "id": "hnl-vds-hardcore",
+              "name": "Dedicate IP VDS Hardcore",
+              "size": "Hardcore",
+              "price": "$45.00",
+              "period": "mo",
+              "popular": false,
+              "status": "out",
+              "inSinceMs": null,
+              "outSinceMs": 1782878400000,
+              "alarm": false,
+              "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vds-2h2g4t"
+            },
+            {
+              "id": "hnl-vds-elite",
+              "name": "Dedicate IP VDS Elite",
+              "size": "Elite",
+              "price": "$165.00",
+              "period": "quarter",
+              "popular": false,
+              "status": "checking",
+              "inSinceMs": null,
+              "outSinceMs": null,
+              "alarm": false,
+              "deepLink": "https://qq.pw/store/residential-vds-with-dedicated-ip/dedicate-ip-vds-standar2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
