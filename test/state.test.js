@@ -23,18 +23,18 @@ function freshStore() {
 }
 const watchlist = () => loadWatchlist();
 
-test('buildState: 32 plans, fixed datacenter/generation order, all-OUT counts', () => {
+test('buildState: 37 plans, fixed datacenter/generation order, all-OUT counts', () => {
   const store = freshStore();
   const s = buildState({ watchlist: watchlist(), store });
   const flat = s.datacenters.flatMap((dc) => dc.generations.flatMap((g) => g.plans));
-  assert.equal(flat.length, 32);
+  assert.equal(flat.length, 37);
   assert.deepEqual(s.datacenters.map((dc) => dc.loc), ['lax', 'hkg', 'tyo', 'hnl']);
   assert.deepEqual(s.counts, {
-    total: 32,
+    total: 37,
     in: 0,
-    waiting: 32,
-    byLoc: { lax: 16, hkg: 5, tyo: 7, hnl: 4 },
-    byGen: { as3: 18, an4: 5, an5: 5, vds: 4 },
+    waiting: 37,
+    byLoc: { lax: 16, hkg: 10, tyo: 7, hnl: 4 },
+    byGen: { as3: 18, an4: 5, an5: 10, vds: 4 },
   });
   // every plan starts "out" with a usable https deep link (dmit cart.php or a
   // provider's own order page)
@@ -49,7 +49,7 @@ test('buildState: a stored IN plan flips status + counts and carries inSinceMs',
   store.setPlanState('lax-an4-medium', { status: 'IN', lastKnown: 'IN', lastChecked: ts, lastChange: ts });
   const s = buildState({ watchlist: watchlist(), store, alarmed: new Set(['lax-an4-medium']) });
   assert.equal(s.counts.in, 1);
-  assert.equal(s.counts.waiting, 31);
+  assert.equal(s.counts.waiting, 36);
   const plan = s.datacenters
     .flatMap((dc) => dc.generations.flatMap((g) => g.plans))
     .find((p) => p.id === 'lax-an4-medium');
@@ -100,12 +100,12 @@ test('buildHistory + latestHistoryRow: durations + ordering', () => {
   store.close();
 });
 
-test('buildHealth: 6 families + telegram rows mapped to plan names', () => {
+test('buildHealth: 7 families + telegram rows mapped to plan names', () => {
   const store = freshStore();
   store.logTelegram({ planId: 'lax-an4-medium', message: 'x', sentOk: true });
   store.logTelegram({ planId: null, message: 'blind', sentOk: false, lastError: 'http 500' });
   const h = buildHealth({ watchlist: watchlist(), store });
-  assert.equal(h.families.length, 6);
+  assert.equal(h.families.length, 7);
   const names = h.telegram.map((t) => t.name);
   assert.ok(names.includes('LAX.AN4.Pro.MEDIUM'));
   assert.ok(names.includes('Watcher blind alert'));

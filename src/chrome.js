@@ -28,6 +28,10 @@
 
 const DEFAULT_CONTENT_TIMEOUT_MS = 20_000; // wait this long for a CF challenge to auto-clear
 const DEFAULT_CONTENT_POLL_MS = 500;
+// Budget for the generation-toggle fallback below: how long to wait for the
+// family's generation box to be clickable, then for its cards to paint.
+const DEFAULT_GEN_CLICK_TIMEOUT_MS = 5_000;
+const DEFAULT_GEN_SWITCH_TIMEOUT_MS = 10_000;
 
 // Positive "this is the real cart.php render" signals. Every cart render — sold
 // out OR orderable — shows at least one of these. A transient Cloudflare
@@ -41,6 +45,8 @@ const CART_CONTENT_MARKERS = Object.freeze([
   'instance scale',
 ]);
 
+const lcIncludes = (text, needleLc) => String(text ?? '').toLowerCase().includes(needleLc);
+
 /**
  * Pure: does this rendered text look like the real cart render (vs a CF
  * challenge / blank first paint)? Used to wait out a transient challenge before
@@ -52,6 +58,18 @@ export function hasCartContent(pageText, { plans = [] } = {}) {
   const hay = String(pageText ?? '').toLowerCase();
   if (CART_CONTENT_MARKERS.some((m) => hay.includes(m))) return true;
   return plans.some((p) => p?.name && hay.includes(String(p.name).toLowerCase()));
+}
+
+/**
+ * Pure: the "we are looking at THIS family's cards" token — every DMIT plan
+ * name starts with `<LOC>.<GEN>.` (e.g. "HKG.AN5."). Null when the family
+ * doesn't carry both fields (non-DMIT shapes don't), which disables the
+ * generation-toggle fallback below. Exported for unit testing.
+ */
+export function familyNameToken(family) {
+  const loc = family?.locCode;
+  const gen = family?.genLabel;
+  return loc && gen ? `${loc}.${gen}.`.toLowerCase() : null;
 }
 
 /** Build the per-family cart.php deep link (also the operator's Buy-now link). */
@@ -81,6 +99,8 @@ export function createCdpPageSource({
   // How long to let a transient CF challenge auto-clear before reading anyway.
   contentTimeoutMs = DEFAULT_CONTENT_TIMEOUT_MS,
   contentPollMs = DEFAULT_CONTENT_POLL_MS,
+  genClickTimeoutMs = DEFAULT_GEN_CLICK_TIMEOUT_MS,
+  genSwitchTimeoutMs = DEFAULT_GEN_SWITCH_TIMEOUT_MS,
   // Injectable for tests (clock, sleep, and the page connector).
   now = () => Date.now(),
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
@@ -127,6 +147,38 @@ export function createCdpPageSource({
     }
   }
 
+  // DMIT deep-link bug (observed 2026-07-04 on the new HKG AN5 group, gid 30):
+  // the cart ignores ?generation=<gen> for groups its deep-link JS doesn't map
+  // and renders the region's DEFAULT generation instead — cart anchors all
+  // present, zero expected plan names, so the family would sit UNKNOWN/blind
+  // forever. The right generation's TOGGLE is still rendered (and visible —
+  // hidden boxes belong to other regions), so when the cart is up but this
+  // family's name token is absent, click the family's generation box and
+  // re-poll until its cards paint. Every failure path (no token fields, box
+  // absent/hidden, click timeout, cards never paint) falls through with the
+  // text we already had — detect.js classifies that UNKNOWN exactly as before,
+  // so a false IN stays structurally impossible.
+  async function selectFamilyGeneration(pg, family, initialText) {
+    const token = familyNameToken(family);
+    if (!token) return initialText;
+    let pageText = initialText;
+    if (lcIncludes(pageText, token)) return pageText; // already on the right generation
+    if (!hasCartContent(pageText)) return pageText; // not a cart render — nothing to click
+    const genAttr = String(family.genLabel).replace(/"/g, '\\"');
+    const boxSelector = `.server-generation-box[generation="${genAttr}"]:not(.hidden)`;
+    try {
+      await pg.click(boxSelector, { timeout: genClickTimeoutMs });
+    } catch {
+      return pageText; // box missing or unclickable — return what rendered
+    }
+    const deadline = now() + genSwitchTimeoutMs;
+    while (!lcIncludes(pageText, token) && now() < deadline && !pg.isClosed?.()) {
+      await sleep(contentPollMs);
+      pageText = (await safeReadBody(pg)) ?? pageText;
+    }
+    return pageText;
+  }
+
   async function readFamily(family) {
     const url = familyUrl(settings, family);
     try {
@@ -147,6 +199,8 @@ export function createCdpPageSource({
         await sleep(contentPollMs);
         pageText = (await safeReadBody(pg)) ?? pageText;
       }
+
+      pageText = await selectFamilyGeneration(pg, family, pageText);
 
       // `ok` reflects whether we actually got a trustworthy cart render, not the
       // raw HTTP status (which may be the now-cleared challenge's 403/503).

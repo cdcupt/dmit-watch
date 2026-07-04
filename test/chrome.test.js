@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createCdpPageSource, hasCartContent } from '../src/chrome.js';
+import { createCdpPageSource, hasCartContent, familyNameToken } from '../src/chrome.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
@@ -18,12 +18,21 @@ const fixture = (name) => read(join('test/fixtures', name));
 // A minimal fake CDP page: goto() returns a fixed status; evaluate() returns the
 // NEXT scripted body text (so we can model a challenge that clears on reload). A
 // scripted body that is an Error is THROWN — modelling an execution-context-
-// destroyed race while Cloudflare auto-navigates.
-function fakePage({ status = 200, bodies = [''] } = {}) {
+// destroyed race while Cloudflare auto-navigates. click() records its selector
+// on page.clicked (so tests can assert the generation-toggle fallback fired or
+// stayed quiet) and throws clickError when scripted — modelling a generation
+// box that is absent/hidden (Playwright's click times out).
+function fakePage({ status = 200, bodies = [''], clickError = null } = {}) {
   let i = 0;
+  const clicked = [];
   return {
+    clicked,
     isClosed: () => false,
     goto: async () => ({ status: () => status }),
+    click: async (selector) => {
+      clicked.push(selector);
+      if (clickError) throw clickError;
+    },
     evaluate: async () => {
       const v = bodies[Math.min(i, bodies.length - 1)];
       i += 1;
@@ -33,6 +42,12 @@ function fakePage({ status = 200, bodies = [''] } = {}) {
   };
 }
 const LAX_AN5 = { key: 'lax/an5', regionSlug: 'los-angeles', gen: 'an5' };
+const HKG_AN5 = { key: 'hkg/an5', regionSlug: 'hong-kong', gen: 'an5', locCode: 'HKG', genLabel: 'AN5' };
+
+// The DMIT deep-link bug render: cart anchors present, but the page opened on
+// the region's DEFAULT generation (AS3) instead of the requested one.
+const HKG_WRONG_GEN = 'Instance Scale HKG.AS3.Pro.TINY $39.90 Out of Stock Total Due Today';
+const HKG_RIGHT_GEN = 'Instance Scale HKG.AN5.Pro.MINI $149.90 Add to Cart Total Due Today';
 
 test('the CDP connect endpoint default pins 127.0.0.1 (not localhost)', () => {
   const src = read('src/chrome.js');
@@ -152,6 +167,78 @@ test('readFamily returns the page as-is (ok=false) when the challenge never clea
   const res = await src.readFamily(LAX_AN5);
   assert.equal(res.ok, false, 'a persistent challenge is NOT ok (detect → UNKNOWN, blind net fires)');
   assert.match(res.pageText, /Just a moment/);
+});
+
+// ---- generation-toggle fallback: the DMIT ?generation= deep-link bug ----
+
+test('familyNameToken derives LOC.GEN. from a DMIT family and null otherwise', () => {
+  assert.equal(familyNameToken(HKG_AN5), 'hkg.an5.');
+  assert.equal(familyNameToken(LAX_AN5), null); // no locCode/genLabel — fallback disabled
+  assert.equal(familyNameToken(null), null);
+});
+
+test('readFamily clicks the generation box when the cart opened on the wrong generation', async () => {
+  const page = fakePage({ bodies: [HKG_WRONG_GEN, HKG_RIGHT_GEN] });
+  const src = createCdpPageSource({
+    connect: async () => ({ browser: { close: async () => {} }, page }),
+    sleep: async () => {},
+  });
+  const res = await src.readFamily(HKG_AN5);
+  assert.deepEqual(page.clicked, ['.server-generation-box[generation="AN5"]:not(.hidden)']);
+  assert.equal(res.ok, true);
+  assert.match(res.pageText, /HKG\.AN5\.Pro\.MINI/, 'must return the switched render');
+});
+
+test('readFamily never clicks when the requested generation already rendered', async () => {
+  const page = fakePage({ bodies: [HKG_RIGHT_GEN] });
+  const src = createCdpPageSource({
+    connect: async () => ({ browser: { close: async () => {} }, page }),
+    sleep: async () => {},
+  });
+  const res = await src.readFamily(HKG_AN5);
+  assert.deepEqual(page.clicked, []);
+  assert.equal(res.ok, true);
+  assert.match(res.pageText, /HKG\.AN5\.Pro\.MINI/);
+});
+
+test('readFamily returns the mismatched render as-is when the box is unclickable', async () => {
+  // DMIT pulls the generation again: the box is gone/hidden, the click times
+  // out — the read must stay ok (cart is real) and detect.js goes UNKNOWN.
+  const page = fakePage({ bodies: [HKG_WRONG_GEN], clickError: new Error('click: Timeout 5000ms exceeded') });
+  const src = createCdpPageSource({
+    connect: async () => ({ browser: { close: async () => {} }, page }),
+    sleep: async () => {},
+  });
+  const res = await src.readFamily(HKG_AN5);
+  assert.equal(page.clicked.length, 1, 'the fallback was attempted');
+  assert.equal(res.ok, true);
+  assert.equal(res.chromeState, 'UP');
+  assert.match(res.pageText, /HKG\.AS3\.Pro\.TINY/, 'the original render is preserved');
+});
+
+test('readFamily never clicks for a family without locCode/genLabel', async () => {
+  // Legacy/non-DMIT family shapes carry no name-token fields — the fallback
+  // must stay fully inert even when the text matches nothing.
+  const page = fakePage({ bodies: [HKG_WRONG_GEN] });
+  const src = createCdpPageSource({
+    connect: async () => ({ browser: { close: async () => {} }, page }),
+    sleep: async () => {},
+  });
+  const res = await src.readFamily(LAX_AN5);
+  assert.deepEqual(page.clicked, []);
+  assert.equal(res.ok, true);
+});
+
+test('readFamily does not click when the page is not a cart render (CF challenge)', async () => {
+  const page = fakePage({ bodies: [fixture('cf-challenge.txt')] });
+  const src = createCdpPageSource({
+    connect: async () => ({ browser: { close: async () => {} }, page }),
+    sleep: async () => {},
+    contentTimeoutMs: -1, // one read, no wait
+  });
+  const res = await src.readFamily(HKG_AN5);
+  assert.deepEqual(page.clicked, [], 'nothing to click on an interstitial');
+  assert.equal(res.ok, false);
 });
 
 test('readFamily reports DOWN + ok=false when the connect/goto throws', async () => {
