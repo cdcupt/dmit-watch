@@ -11,6 +11,13 @@ Generic, secret-free templates for the two hosts involved in the public board
 | `vps-stock.env.example` | Template for the box-local env file (`PUSH_TOKEN`, `PORT`, `SNAPSHOT_FILE`). Copy to `vps-stock.env`, fill in a fresh token, `chmod 600`. |
 | `vps-stock.caddy` | Vhost snippet for the shared Caddy edge: one site block reverse-proxying to the container's loopback port. Import it from the main Caddyfile; restart (not reload) the edge. |
 
+> **Containerized edge gotcha (found at deploy time):** the `reverse_proxy 127.0.0.1:<port>`
+> loopback pattern in `vps-stock.caddy` only works when the edge Caddy is **host-networked**.
+> If the shared edge Caddy runs as a container on a docker network, `127.0.0.1` is the Caddy
+> container itself and never reaches the host's port map — instead, join the board-server
+> container to the edge's docker network and proxy by container name
+> (e.g. `reverse_proxy vps-stock:8080`).
+
 Deploy order: copy `board-server/` + compose file → create the env file →
 `docker compose up -d` → verify `/healthz` locally → wire the Caddy snippet →
 restart the edge → smoke-test every tenant domain.
