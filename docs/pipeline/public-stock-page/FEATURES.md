@@ -34,7 +34,7 @@ beta pass — no silent skips.
 - F23 GET /api/state: 200 JSON {v, pushedAt, receivedAt, now, state}, Cache-Control: no-store
 - F24 GET /healthz: {ok, receivedAt, ageMs}
 - F25 POST /api/push without token → 401 (with garbage token → 401); page keeps serving
-- F26 Mutating panel endpoints absent: POST /api/silence → 404, POST /api/watchlist/remove → 404, POST /api/state → 405
+- F26 Mutating panel endpoints absent: POST /api/silence, /api/watchlist/remove, /api/state all rejected (404 or 405 — never executed; router checks method before existence since round 2)
 - F27 No alarm/audio/notification behavior anywhere: no sound, no Notification permission prompt, no alarm banner UI
 - F28 Unknown paths → 404; path traversal attempts (e.g. /../server.js, /js/../../etc/passwd) → 404, never file contents
 
