@@ -13,7 +13,7 @@
 
 import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { loadWatchlist, loadSecrets, loadPushConfig } from './config.js';
+import { loadWatchlist, loadSecrets, loadPushConfig, resolveCadenceSec } from './config.js';
 import { openStore } from './store.js';
 import { createWatcher } from './watcher.js';
 import { createTelegramNotifier } from './telegram.js';
@@ -43,10 +43,10 @@ export function wireNotifier({ secrets, store, logger = console, createNotifier 
  * Publisher seam: construct the push publisher from loadPushConfig() output and
  * log exactly one boot line — the URL's origin only, never the token, never the
  * full endpoint path.
- * @param {{ config: object|null, getWatchlist: Function, store: object, logger?: object, create?: Function }} opts
+ * @param {{ config: object|null, getWatchlist: Function, store: object, cadenceSec?: number, logger?: object, create?: Function }} opts
  */
-export function wirePublisher({ config, getWatchlist, store, logger = console, create = createPublisher }) {
-  const publisher = create({ config, getWatchlist, store, logger });
+export function wirePublisher({ config, getWatchlist, store, cadenceSec, logger = console, create = createPublisher }) {
+  const publisher = create({ config, getWatchlist, store, cadenceSec, logger });
   if (publisher.enabled) {
     logger?.log?.(`[index] push: enabled -> ${new URL(config.url).origin}`);
   } else {
@@ -82,11 +82,16 @@ async function main() {
 
   // 5b) Public-board publisher (OFF unless both push keys are configured). The
   //     watchlist getter is the panel server's LIVE ref, never a boot copy — a
-  //     family removed via the panel disappears from the very next push.
+  //     family removed via the panel disappears from the very next push. The
+  //     envelope's cadenceSec is the resolved TARGET cadence — the midpoint of
+  //     the resolveCadenceSec jitter band (i.e. the configured 300) — so the
+  //     board derives freshness thresholds honestly (subscriptions TECH §B6/D7).
+  const [cadMinSec, cadMaxSec] = resolveCadenceSec(watchlist.settings);
   const publisher = wirePublisher({
     config: loadPushConfig(),
     getWatchlist: () => server.watchlist,
     store,
+    cadenceSec: Math.round((cadMinSec + cadMaxSec) / 2),
   });
 
   // 6) Wire + run. The scheduler routes watcher events → notifier AND the composed

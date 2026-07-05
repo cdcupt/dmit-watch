@@ -22,6 +22,11 @@ Deploy order: copy `board-server/` + compose file → create the env file →
 `docker compose up -d` → verify `/healthz` locally → wire the Caddy snippet →
 restart the edge → smoke-test every tenant domain.
 
+Subscription state (encrypted Telegram tokens + per-plan picks) lives in `board.db` beside
+`snapshot.json` on the `data/` volume — same atomic-write discipline; back it up if subscriptions
+matter. Env changes (e.g. setting `TOKEN_KEY`) need `docker compose up -d --force-recreate` —
+a plain `restart` does **not** reload the env file (found at deploy time).
+
 ## Watcher host (runs the watcher itself)
 
 | File | What it is |

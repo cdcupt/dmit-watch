@@ -1,7 +1,7 @@
 {
   "_meta": {
     "source": "docs/pipeline/recon-premium.md (v3, CONFIRMED 2026-06-27); hkg/an5 re-added 2026-07-04 (DMIT re-enabled the generation; its an5 cart URL now serves distinct AN5 plans, site-verified — supersedes the 2026-07-03 retirement)",
-    "note": "33 Premium plans watched. HKG.AS3 + 5/7 of TYO.AS3 were IN STOCK at the 2026-07-03 revision; stock is read live. 2026-07-03: qq.pw Hawaii residential VDS (provider whmcs, plain-HTTP) added. 2026-07-04: HKG.AN5 (5 plans) re-added — 37 plans / 7 families total.",
+    "note": "33 Premium plans watched. HKG.AS3 + 5/7 of TYO.AS3 were IN STOCK at the 2026-07-03 revision; stock is read live. 2026-07-03: qq.pw Hawaii residential VDS (provider whmcs, plain-HTTP) added. 2026-07-04: HKG.AN5 (5 plans) re-added — 37 plans / 7 families total. 2026-07-05 (subscriptions round, TECH §B6): cadenceSec 60→300 (5-minute cadence) and backoffCapSec 900→3600 (restores a real ladder from base 300: 600→1200→2400→3600); cooldownSec 90 kept but inert at this cadence (consecutive family observations are ≥270 s apart — still meaningful if cadence is lowered via DMIT_WATCH_CADENCE_SEC).",
     "counts": {
       "total": 37,
       "byLocation": {
@@ -27,9 +27,9 @@
     "cartPath": "/cart.php",
     "network": "premium",
     "language": "english",
-    "cadenceSec": 60,
+    "cadenceSec": 300,
     "backoffFactor": 2,
-    "backoffCapSec": 900,
+    "backoffCapSec": 3600,
     "cooldownSec": 90,
     "blindCycles": 3,
     "blindRenotifySec": 3600,

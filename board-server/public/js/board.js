@@ -2,10 +2,11 @@
 // 1 s age ticker, and a paint per genuinely-new snapshot. Freshness is computed
 // from receivedAt only against the server-corrected clock — fetch success is
 // never a freshness signal, and a poll failure never touches the ladder. This
-// bundle is read-only by construction: no SSE, no audio, no POST anywhere.
+// module's poll loop is read-only by construction: no SSE, no audio; all
+// mutations live in js/subscribe.js — this module never POSTs.
 
 import { $, fmtAgo, reduceMotion } from './util.js';
-import { paint, freshTier } from './render.js';
+import { paint, freshTier, tierMsgs, fmtCadence, subCopy } from './render.js';
 
 // Timing constants — single source (TECH §10 table).
 const POLL_MS = 30_000; // base fetch interval
@@ -14,18 +15,26 @@ const TICK_MS = 1_000; // age-label ticker
 const BACKOFF_CAP_MS = 300_000; // failure interval = POLL_MS × 2ⁿ capped here
 
 // Screen-reader copy per tier — announced on TRANSITIONS only, never per tick.
-const TIER_MSG = Object.freeze({
-  fresh: 'Board data is fresh — updated under 2 minutes ago.',
-  aging: 'Board data is aging — last updated more than 2 minutes ago.',
-  stale: 'Board data may be stale — the watcher has been offline for more than 5 minutes.',
-});
+// Derived from the served cadence (TECH §fe-fresh); starts on the round-1
+// fallback strings until the first envelope arrives.
+let TIER_MSG = tierMsgs(null);
 
+let cadenceMs; // served cadence in ms (null = envelope lacks it; undefined = no envelope yet)
+let latestSnap = null; // last applied { state, receivedAt } — picker data for subscribe.js
 let receivedAt = null; // server truth: when the last push landed (null = warming)
 let skewMs = 0; // Date.now() − server now (0 when now is absent)
 let failures = 0; // consecutive poll failures (drives backoff only)
 let pollTimer = null;
 let tickTimer = null;
 let lastTier = null;
+
+// One-shot first-snapshot hook (beta F44): resolves the moment the FIRST real
+// snapshot is applied. No polling — apply() settles it inline; a panel opened
+// before any snapshot (the ?manage=1 deep link) completes its pickers off it.
+let announceFirstSnap = null;
+const firstSnapP = new Promise((resolve) => {
+  announceFirstSnap = resolve;
+});
 
 const age = () => Math.max(0, Date.now() - skewMs - receivedAt);
 
@@ -35,7 +44,7 @@ function tick() {
   const a = age();
   $('#freshLabel').textContent = 'updated ' + fmtAgo(a);
   $('#staleAge').textContent = fmtAgo(a);
-  const tier = freshTier(a);
+  const tier = freshTier(a, cadenceMs);
   if (tier === lastTier) return;
   lastTier = tier;
   $('#freshPill').className = 'lamp fresh-pill' + (tier === 'fresh' ? '' : ' ' + tier);
@@ -78,12 +87,33 @@ function flipPaint(state, now) {
   });
 }
 
+// ---------- cadence-derived copy (TECH §fe-fresh) ----------
+// Rewritten only when the served cadence changes — the static skeleton ships
+// 5-minute literals and the first envelope corrects every dynamic surface
+// either direction (rolling-deploy honesty, D7).
+function writeCadenceCopy(ms) {
+  const cad = fmtCadence(ms);
+  $('#cadExplainer').textContent = `about every ${cad.long}`;
+  $('#cadFooter').textContent = `about every ${cad.long}`;
+  $('#instockEmpty').textContent = subCopy('noneIn', { cad: cad.long });
+  $('#subHonesty').textContent = subCopy('panelHonesty', { cadLong: cad.long, cadShort: cad.short });
+  // Stash the minute figure for subscribe.js's card previews (copy hook only).
+  $('#subPanel').dataset.cadMin = String(Math.max(1, Math.round((Number.isFinite(ms) && ms > 0 ? ms : 60_000) / 60_000)));
+}
+
 // ---------- snapshot envelope → board ----------
 function apply(body) {
   skewMs = typeof body.now === 'number' ? Date.now() - body.now : 0;
+  const cad = Number.isFinite(body.cadenceSec) && body.cadenceSec > 0 ? body.cadenceSec * 1000 : null;
+  if (cad !== cadenceMs) {
+    cadenceMs = cad;
+    TIER_MSG = tierMsgs(cadenceMs);
+    writeCadenceCopy(cadenceMs);
+  }
   if (body.receivedAt == null || body.state == null) {
     // Warming up (never a 404/500): dashed empty block, pill hidden.
     receivedAt = null;
+    latestSnap = null;
     lastTier = null;
     $('#freshPill').hidden = true;
     paint(null);
@@ -91,9 +121,27 @@ function apply(body) {
   }
   const isNew = body.receivedAt !== receivedAt; // re-render gate
   receivedAt = body.receivedAt;
+  latestSnap = { state: body.state, receivedAt };
+  if (announceFirstSnap) {
+    announceFirstSnap(latestSnap); // one-shot — the warming branch never fires it
+    announceFirstSnap = null;
+  }
   $('#freshPill').hidden = false;
   if (isNew) flipPaint(body.state, Date.now() - skewMs);
   tick(); // honest label + tier immediately, not at the next second
+}
+
+/** Last applied snapshot ({ state, receivedAt }) or null while warming — the
+ *  panel (js/subscribe.js) builds its picker from this at open time. */
+export function getLatest() {
+  return latestSnap;
+}
+
+/** Promise of the FIRST applied snapshot — one-shot, never rejects, simply
+ *  pending while the watcher warms up. subscribe.js hooks it to complete a
+ *  panel that opened before any snapshot existed (beta F44). */
+export function firstSnapshot() {
+  return firstSnapP;
 }
 
 // ---------- fetch loop with ×2 backoff on consecutive failures ----------
@@ -225,7 +273,7 @@ function boot() {
     chip.textContent = 'demo data';
     document.body.appendChild(chip);
     const now = Date.now();
-    apply({ v: 1, pushedAt: now - 39_000, receivedAt: now - 38_000, now, state: demoSnapshot(now) });
+    apply({ v: 1, pushedAt: now - 39_000, receivedAt: now - 38_000, now, cadenceSec: 300, state: demoSnapshot(now) });
     return; // demo is a static render — no polling
   }
   poll();

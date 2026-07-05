@@ -1,7 +1,7 @@
 # dmit-restock-watch
 
 A small, always-on **restock watcher for [DMIT](https://www.dmit.io)'s Premium-network VPS plans** (the
-CN2 GIA / "Pro" line that's perpetually sold out). It checks every Premium plan about once a minute and
+CN2 GIA / "Pro" line that's perpetually sold out). It checks each Premium plan roughly every five minutes and
 **alerts you the instant one becomes buyable** — via Telegram (optional) and an on-screen alarm — so you
 can grab it manually inside the short window before it sells out again.
 
@@ -89,7 +89,9 @@ phone; without it the panel is still the full desk-side view. Logs: `tail -f ~/.
 ## Configuration
 
 - **`config/watchlist.json`** — the watched plans + settings.
-  - `settings.cadenceSec` — how often each plan is checked, in **seconds** (default **60**). A small ±10%
+  - `settings.cadenceSec` — how often each plan is checked, in **seconds** (default **300** — about every
+    five minutes; the board page's freshness thresholds derive from the served cadence, so they follow this
+    setting automatically). A small ±10%
     jitter is applied for politeness; values below a 20s floor are clamped. You can also override at runtime
     with the env var `DMIT_WATCH_CADENCE_SEC`. Apply changes with:
     `launchctl kickstart -k gui/$(id -u)/com.dmit-watch.agent` (or restart `start.sh`).
@@ -135,7 +137,18 @@ The watcher can feed a **public read-only stock board** (live reference deployme
 > The **watcher host needs a residential IP** for DMIT — datacenter IPs get walled by Cloudflare
 > (tested). The board host can be anywhere.
 
-Full design/tech/test/beta paper trail for this feature:
+### Restock alerts (Telegram subscriptions)
+
+Board visitors can subscribe to **exact plans** and get pinged when they restock — no account, bring your
+own bot: pick plans on the board, paste a bot token from **@BotFather** plus your chat id, and the board
+server sends **one digest card per restock event** covering every subscribed plan that came back. A
+confirmation card arrives immediately on subscribe (proving the pipe works end-to-end); manage or
+unsubscribe anytime via `?manage=1` on the board. Tokens are **AES-256-GCM-encrypted at rest** and
+revocable anytime with BotFather's `/revoke`. Server-side this adds one env var: `TOKEN_KEY`
+(`openssl rand -hex 32`) — without it the subscription routes answer `503` while the board keeps serving.
+This round's design/tech/test/beta docs: [`docs/pipeline/subscriptions/`](docs/pipeline/subscriptions/).
+
+Full design/tech/test/beta paper trail for the board itself:
 [`docs/pipeline/public-stock-page/`](docs/pipeline/public-stock-page/).
 
 ## Privacy & safety
@@ -143,8 +156,8 @@ Full design/tech/test/beta paper trail for this feature:
 - **No secrets in the repo.** Telegram credentials and the board push token live only in `~/.dmit-watch/config`.
 - **No DMIT password is stored** — reading stock is public; buying happens in your normal browser via the link.
 - **The panel binds `127.0.0.1` only** (loopback), with CSRF-guarded state-changing endpoints.
-- **Be polite.** Keep the cadence reasonable (the default 60s with jitter is fine for a single user); this is
-  a personal, low-frequency, read-only monitor — please don't hammer DMIT.
+- **Be polite.** Keep the cadence reasonable (the default ~5 minutes with jitter is deliberately gentle); this
+  is a personal, low-frequency, read-only monitor — please don't hammer DMIT.
 
 ## Run the tests
 

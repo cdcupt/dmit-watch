@@ -13,6 +13,6 @@ verifying it reads.
 Key rules:
 - **Never print or commit the Telegram bot token.** It belongs only in `~/.dmit-watch/config`. Telegram is **optional** — skipping it means panel-only alerts.
 - **No DMIT login is needed** — stock is public; the user buys manually in their own browser.
-- The app runs **locally** (panel on `127.0.0.1:7331`); Linux/systemd hosting and the optional public stock board are covered in [README.md](README.md) and [ops/](ops/).
+- The app runs **locally** (panel on `127.0.0.1:7331`); Linux/systemd hosting and the optional public stock board (which offers visitors per-plan Telegram restock subscriptions) are covered in [README.md](README.md) and [ops/](ops/).
 
 Human-readable setup is in [README.md](README.md).

@@ -5,12 +5,12 @@ description: Install, configure, and start dmit-restock-watch (the DMIT Premium-
 
 # Set up dmit-restock-watch
 
-You are an AI agent setting up this DMIT Premium-network **restock watcher** on the user's machine. It checks DMIT's perpetually-sold-out Premium plans ~once a minute and alerts the user (an on-screen panel + optional Telegram) the instant one is buyable. It runs locally; there is **no auto-buy** and **no DMIT login is needed** (stock is public — the user only signs into DMIT in their own browser when they click Buy).
+You are an AI agent setting up this DMIT Premium-network **restock watcher** on the user's machine. It checks DMIT's perpetually-sold-out Premium plans ~every 5 minutes and alerts the user (an on-screen panel + optional Telegram) the instant one is buyable. It runs locally; there is **no auto-buy** and **no DMIT login is needed** (stock is public — the user only signs into DMIT in their own browser when they click Buy).
 
 Work from the repo root. Be interactive: do each step, show the result, and only continue when it succeeds. **Never print or commit the user's Telegram bot token** — it goes only into `~/.dmit-watch/config` (chmod 600), never into the repo, a commit, or chat output.
 
 ## Step 0 — Preconditions
-- `uname` must be `Darwin`. If it is **not** macOS: tell the user the helper scripts (`caffeinate` + `launchd`) are macOS-only; the core Node watcher still works but they must launch Chrome with the debug flags themselves and run `node src/index.js` + use their own service manager. Then stop unless they want to proceed manually. (Linux/systemd hosting and the public stock board are covered in [README.md](../../../README.md) and [ops/](../../../ops/).)
+- `uname` must be `Darwin`. If it is **not** macOS: tell the user the helper scripts (`caffeinate` + `launchd`) are macOS-only; the core Node watcher still works but they must launch Chrome with the debug flags themselves and run `node src/index.js` + use their own service manager. Then stop unless they want to proceed manually. (Linux/systemd hosting and the public stock board — which also offers visitors optional per-plan Telegram restock subscriptions — are covered in [README.md](../../../README.md) and [ops/](../../../ops/).)
 - `node -v` must be **≥ 24** (the app uses the built-in `node:sqlite`). If older, ask them to upgrade Node and stop.
 - Google Chrome must exist at `/Applications/Google Chrome.app` (or have them set `CHROME_BIN`). 
 
