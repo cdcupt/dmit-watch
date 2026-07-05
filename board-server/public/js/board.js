@@ -28,6 +28,14 @@ let pollTimer = null;
 let tickTimer = null;
 let lastTier = null;
 
+// One-shot first-snapshot hook (beta F44): resolves the moment the FIRST real
+// snapshot is applied. No polling — apply() settles it inline; a panel opened
+// before any snapshot (the ?manage=1 deep link) completes its pickers off it.
+let announceFirstSnap = null;
+const firstSnapP = new Promise((resolve) => {
+  announceFirstSnap = resolve;
+});
+
 const age = () => Math.max(0, Date.now() - skewMs - receivedAt);
 
 // ---------- age ticker (label writes only; tier class on transitions) ----------
@@ -114,6 +122,10 @@ function apply(body) {
   const isNew = body.receivedAt !== receivedAt; // re-render gate
   receivedAt = body.receivedAt;
   latestSnap = { state: body.state, receivedAt };
+  if (announceFirstSnap) {
+    announceFirstSnap(latestSnap); // one-shot — the warming branch never fires it
+    announceFirstSnap = null;
+  }
   $('#freshPill').hidden = false;
   if (isNew) flipPaint(body.state, Date.now() - skewMs);
   tick(); // honest label + tier immediately, not at the next second
@@ -123,6 +135,13 @@ function apply(body) {
  *  panel (js/subscribe.js) builds its picker from this at open time. */
 export function getLatest() {
   return latestSnap;
+}
+
+/** Promise of the FIRST applied snapshot — one-shot, never rejects, simply
+ *  pending while the watcher warms up. subscribe.js hooks it to complete a
+ *  panel that opened before any snapshot existed (beta F44). */
+export function firstSnapshot() {
+  return firstSnapP;
 }
 
 // ---------- fetch loop with ×2 backoff on consecutive failures ----------

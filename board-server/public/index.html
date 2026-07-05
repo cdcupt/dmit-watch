@@ -118,7 +118,9 @@
           <form id="subForm">
             <div class="field" id="fTok">
               <label for="fldToken">bot token</label>
-              <input id="fldToken" type="text" autocomplete="off" spellcheck="false" placeholder="8123456789:AA…" aria-describedby="fTokErr">
+              <!-- type=password: a pasted real token never sits readable on
+                   screen or in screenshots (round-2 hygiene fix) -->
+              <input id="fldToken" type="password" autocomplete="off" spellcheck="false" placeholder="8123456789:AA…" aria-describedby="fTokErr">
               <p class="field-err" id="fTokErr">That doesn't look like a bot token — it should look like 8123456789:AA… (46+ characters). Re-copy it from @BotFather.</p>
             </div>
             <div class="chatrow">
@@ -166,7 +168,7 @@
           <form id="mgForm">
             <div class="field" id="mTok">
               <label for="mgToken">bot token</label>
-              <input id="mgToken" type="text" autocomplete="off" spellcheck="false" placeholder="8123456789:AAxx…" aria-describedby="mTokErr">
+              <input id="mgToken" type="password" autocomplete="off" spellcheck="false" placeholder="8123456789:AAxx…" aria-describedby="mTokErr">
               <p class="field-err" id="mTokErr">That doesn't look like a bot token — it should look like 8123456789:AA… (46+ characters). Re-copy it from @BotFather.</p>
             </div>
             <div class="field" id="mChat">

@@ -125,6 +125,43 @@ export function routeOutcome(call, { status, reason } = {}) {
   return server;
 }
 
+/**
+ * Manage-load render model (beta F44): the summary always speaks the SAVED
+ * count; rows are ready only once a real snapshot exists — ready:false renders
+ * a brief loading state that the first-snapshot hook completes. `checked` is
+ * the saved ids VERBATIM: the round-2 regression filtered them through a
+ * planMap built before any snapshot (empty), which unchecked every row while
+ * the summary still said "You watch N plans".
+ */
+export function manageLoadModel(ids, snap) {
+  const n = ids.length;
+  return {
+    ready: Boolean(snap?.state),
+    checked: new Set(ids),
+    summary: `You watch ${n} plan${n === 1 ? '' : 's'}. Edit the list, or clear everything to unsubscribe.`,
+  };
+}
+
+/**
+ * Update-safety invariant (beta F44, defense in depth): an Update submits
+ * (visibly-checked ids) ∪ (saved ids that never RENDERED as a checkable row).
+ * A plan the subscriber was never shown — picker still loading, plan vanished
+ * from the board — can never be dropped silently; only an explicit uncheck of
+ * a rendered row (or Unsubscribe-all) removes a saved plan.
+ */
+export function updateDraft(checkedIds, renderedIds, savedPlanIds) {
+  const rendered = new Set(renderedIds);
+  const out = [...checkedIds];
+  const seen = new Set(checkedIds);
+  for (const id of savedPlanIds ?? []) {
+    if (!rendered.has(id) && !seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
 // ---------- browser-only panel controller ------------------------------------
 
 const IS_DOM = typeof document !== 'undefined' && typeof window !== 'undefined';
@@ -135,11 +172,14 @@ const LOOKUP_BUSY = 'Looking up your subscription…';
 const UPDATE_BUSY = 'Updating your subscription…';
 const REMOVE_BUSY = 'Removing your subscription…';
 const WARMING_PICK = 'The board is still warming up — plan picking opens with the first snapshot.';
+const MG_PICK_LOADING = 'Loading the plan list — your saved plans will show up checked in a moment.';
 
 // Draft memory is module state only — closing hides, never resets (DESIGN §4).
 let getLatest = () => null;
+let firstSnapshot = null; // board.js's one-shot hook (null if the board failed)
 const draft = new Set(); // subscribe-tab selection, survives close/reopen
 let planMap = new Map(); // id → display record, rebuilt from getLatest() per open
+let savedIds = null; // planIds from the last successful lookup (manage session)
 let activeTab = 'subscribe';
 let step = 1; // subscribe tab: 1 = picking, 2 = credentials
 let subPhase = 'form'; // 'form' | 'success'
@@ -156,13 +196,18 @@ const ADD_CHIP_MS = 4000;
 
 async function boot() {
   try {
-    ({ getLatest } = await import('./board.js'));
+    ({ getLatest, firstSnapshot } = await import('./board.js'));
   } catch {
     /* board bootstrap failed — manage tab still works without a snapshot */
   }
   wire();
   // Entry C: /?manage=1 — checked once at module boot; no secrets ride the URL.
   if (new URLSearchParams(location.search).get('manage') === '1') openPanel({ tab: 'manage' });
+  // Deep-link timing (beta F44): a panel opened before the first snapshot has
+  // no plan data — complete its pickers the moment the snapshot lands. This is
+  // board.js's one-shot promise settled inline by its boot fetch (~1 s); no
+  // polling here, and a no-op when the panel is closed or already populated.
+  firstSnapshot?.().then(onSnapshotReady);
 }
 
 // ---------- small helpers ----------
@@ -170,6 +215,10 @@ const isMobile = () => window.matchMedia('(max-width:719px)').matches;
 const tokenOk = (v) => TOKEN_RE.test(v.trim());
 const chatOk = (v) => CHAT_RE.test(v.trim());
 const pickedIds = (root) => [...root.querySelectorAll('.pick:checked')].map((c) => c.dataset.planId);
+const renderedIds = (root) => [...root.querySelectorAll('.pick')].map((c) => c.dataset.planId);
+// The only id set an Update may ever submit (beta F44) — visible checks plus
+// every saved plan that never rendered as a row (loading picker, vanished plan).
+const mgDraft = () => updateDraft(pickedIds($('#mgPicker')), renderedIds($('#mgPicker')), savedIds);
 
 function setStatus(msg, tone) {
   const el = $('#subStatus');
@@ -358,7 +407,10 @@ function updateTray() {
   else if (mgPhase === 'idle') {
     vis['#mgLoad'] = busy || deadlines.mg > nowMs || !tokenOk($('#mgToken').value) || !chatOk($('#mgChat').value);
   } else {
-    const n = pickedIds($('#mgPicker')).length;
+    // Safe draft count (beta F44): while the picker is still loading, the
+    // saved plans count as selected — the tray offers Update (a preserving
+    // no-op), never the Unsubscribe path, when zero rows have rendered.
+    const n = mgDraft().length;
     count = `${n} selected`;
     const gated = busy || deadlines.mg > nowMs;
     if (n === 0) {
@@ -577,18 +629,33 @@ async function doLookup() {
 }
 
 function showLoaded(ids) {
+  savedIds = [...ids]; // the session's saved set — mgDraft unions it back in
   const snap = getLatest();
-  const kept = snap?.state ? ids.filter((id) => planMap.has(id)) : ids; // vanished ids dropped
-  $('#mgSummary').textContent = `You watch ${ids.length} plan${ids.length === 1 ? '' : 's'}. Edit the list, or clear everything to unsubscribe.`;
-  if (snap?.state) {
+  const m = manageLoadModel(savedIds, snap); // checked = saved ids VERBATIM (F44)
+  $('#mgSummary').textContent = m.summary;
+  if (m.ready) {
+    if (!planMap.size) planMap = planIndex(snap.state); // panel opened pre-snapshot
     const box = $('#mgPicker');
-    box.innerHTML = pickerHTML(snap.state, new Set(kept), isMobile() ? null : true);
+    box.innerHTML = pickerHTML(snap.state, m.checked, isMobile() ? null : true);
     wireStopProp(box);
     syncPickAll(box);
   } else {
-    $('#mgPicker').innerHTML = `<div class="empty">${WARMING_PICK}</div>`;
+    // Brief loading state — onSnapshotReady re-runs showLoaded with the same
+    // savedIds once the first snapshot lands, filling the pre-checked rows.
+    $('#mgPicker').innerHTML = `<div class="empty">${MG_PICK_LOADING}</div>`;
   }
   showMgPhase('loaded');
+}
+
+// First-snapshot completion (beta F44): a panel opened before any snapshot —
+// the ?manage=1 deep link at module boot — rendered its pickers from nothing.
+// When board.js applies the first snapshot, fill the plan index, replace the
+// warming/loading placeholders, and pre-check the manage rows from savedIds.
+function onSnapshotReady() {
+  if ($('#subPanel').hidden) return; // a closed panel rebuilds at next open
+  if (!planMap.size) rebuildPicker(); // subscribe picker leaves its warming state
+  if (mgPhase === 'loaded' && savedIds) showLoaded(savedIds); // manage-load completes
+  updateTray();
 }
 
 function clearMgCreds() {
@@ -607,7 +674,7 @@ function showMgDone(msg) {
 
 async function doUpdate() {
   if (busy) return;
-  const ids = pickedIds($('#mgPicker'));
+  const ids = mgDraft(); // never narrower than the saved-but-unrendered set (F44)
   if (!ids.length) return; // n = 0 is the unsubscribe path — the client turns 0 into delete
   const token = $('#mgToken').value.trim();
   const chatId = $('#mgChat').value.trim();

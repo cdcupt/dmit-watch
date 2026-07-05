@@ -82,7 +82,7 @@ export const SUB_COPY = Object.freeze({
   sending: 'Sending confirmation to your bot…',
   successTitle: 'Check your Telegram',
   successBody: 'Your confirmation card just arrived — the same pipe delivers your restock digest.',
-  mergedBody: 'Subscription updated — you now watch {n} plans.',
+  mergedBody: 'Subscription updated — you now watch {n} {n|plan|plans}.',
   noneIn:
     'Nothing in stock right now — the board checks about every {cad}. Subscribe to get a Telegram card the moment a plan comes back.',
   errTokenFormat:
@@ -100,7 +100,7 @@ export const SUB_COPY = Object.freeze({
   errServer: 'Something broke on our side — nothing was saved. Try again in a minute.',
   chatFound: "Found it — that's your chat id.",
   mgNotFound: 'No subscription found for that token + chat id.',
-  mgUpdated: 'Updated — you now watch {n} plans.',
+  mgUpdated: 'Updated — you now watch {n} {n|plan|plans}.',
   mgGone: 'Unsubscribed. Your token and plan list were deleted.',
   // Round-2 beta amendment: a bell click that lands in an in-progress session
   // confirms the add by name near the tray (rendered via textContent, unescaped).
@@ -109,11 +109,18 @@ export const SUB_COPY = Object.freeze({
     "We store exactly three things: your bot token, your chat id, your plan list. No account, no email, no cookies. Your bot can only message people who pressed Start on it — that's you. Unsubscribe here anytime, or send /revoke to @BotFather — that kills the token instantly.",
 });
 
-/** Render a SUB_COPY template: unknown keys → '', unmatched {vars} left as-is. */
+/**
+ * Render a SUB_COPY template: unknown keys → '', unmatched {vars} left as-is.
+ * {var|singular|plural} is the count-choice form (beta F44 pluralization fix):
+ * it picks singular when Number(vars.var) === 1, plural otherwise — so a
+ * template never hardcodes "plans" next to an {n} that can be 1.
+ */
 export function subCopy(key, vars = {}) {
-  return String(SUB_COPY[key] ?? '').replace(/\{(\w+)\}/g, (m, k) =>
-    k in vars ? String(vars[k]) : m,
-  );
+  return String(SUB_COPY[key] ?? '')
+    .replace(/\{(\w+)\|([^|{}]*)\|([^|{}]*)\}/g, (m, k, one, many) =>
+      k in vars ? (Number(vars[k]) === 1 ? one : many) : m,
+    )
+    .replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 }
 
 // ---------- plan card (three public variants) ----------

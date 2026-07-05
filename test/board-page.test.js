@@ -44,6 +44,8 @@ import {
   rateState,
   api,
   routeOutcome,
+  manageLoadModel,
+  updateDraft,
 } from '../board-server/public/js/subscribe.js';
 import { esc, fmtDur, fmtAgo } from '../board-server/public/js/util.js';
 
@@ -402,7 +404,7 @@ test('SUB_COPY: frozen, and the 300 s renders equal the DESIGN-locked literals',
   assert.equal(SUB_COPY.sending, 'Sending confirmation to your bot…');
   assert.equal(SUB_COPY.successTitle, 'Check your Telegram');
   assert.equal(SUB_COPY.successBody, 'Your confirmation card just arrived — the same pipe delivers your restock digest.');
-  assert.equal(SUB_COPY.mergedBody, 'Subscription updated — you now watch {n} plans.');
+  assert.equal(SUB_COPY.mergedBody, 'Subscription updated — you now watch {n} {n|plan|plans}.');
   assert.equal(SUB_COPY.errTokenFormat, "That doesn't look like a bot token — it should look like 8123456789:AA… (46+ characters). Re-copy it from @BotFather.");
   assert.equal(SUB_COPY.errTokenRejected, 'Telegram rejected this token — re-copy it from @BotFather, or send /token there to reissue it.');
   assert.equal(SUB_COPY.errChatFormat, 'A chat id is just a number, like 521934882.');
@@ -414,7 +416,7 @@ test('SUB_COPY: frozen, and the 300 s renders equal the DESIGN-locked literals',
   assert.equal(SUB_COPY.bellAdded, '+ {name} added');
   assert.equal(SUB_COPY.errServer, 'Something broke on our side — nothing was saved. Try again in a minute.');
   assert.equal(SUB_COPY.mgNotFound, 'No subscription found for that token + chat id.');
-  assert.equal(SUB_COPY.mgUpdated, 'Updated — you now watch {n} plans.');
+  assert.equal(SUB_COPY.mgUpdated, 'Updated — you now watch {n} {n|plan|plans}.');
   assert.equal(SUB_COPY.mgGone, 'Unsubscribed. Your token and plan list were deleted.');
   assert.equal(SUB_COPY.privacy, "We store exactly three things: your bot token, your chat id, your plan list. No account, no email, no cookies. Your bot can only message people who pressed Start on it — that's you. Unsubscribe here anytime, or send /revoke to @BotFather — that kills the token instantly.");
   // The two TECH-added locked keys.
@@ -424,6 +426,27 @@ test('SUB_COPY: frozen, and the 300 s renders equal the DESIGN-locked literals',
   assert.equal(subCopy('mergedBody', { n: 3 }), 'Subscription updated — you now watch 3 plans.');
   assert.equal(subCopy('errRate', { t: fmtRetry(40) }), 'Too many attempts — try again in 40s.');
   assert.equal(subCopy('bellAdded', { name: 'HKG.AN5.Pro.MINI' }), '+ HKG.AN5.Pro.MINI added');
+});
+
+// Round-2 fix (beta F44): every count-bearing SUB_COPY string pluralizes via
+// the {n|singular|plural} choice token — "1 plan", never "1 plans".
+test('subCopy pluralization matrix: mgUpdated and mergedBody at n = 0/1/2', () => {
+  assert.equal(subCopy('mgUpdated', { n: 1 }), 'Updated — you now watch 1 plan.');
+  assert.equal(subCopy('mgUpdated', { n: 2 }), 'Updated — you now watch 2 plans.');
+  assert.equal(subCopy('mgUpdated', { n: 0 }), 'Updated — you now watch 0 plans.');
+  assert.equal(subCopy('mergedBody', { n: 1 }), 'Subscription updated — you now watch 1 plan.');
+  assert.equal(subCopy('mergedBody', { n: 2 }), 'Subscription updated — you now watch 2 plans.');
+  assert.equal(subCopy('mergedBody', { n: 0 }), 'Subscription updated — you now watch 0 plans.');
+  // String counts behave like numbers (server bodies arrive as JSON numbers,
+  // but the choice token never depends on that).
+  assert.equal(subCopy('mgUpdated', { n: '1' }), 'Updated — you now watch 1 plan.');
+  // Unknown vars leave BOTH token forms intact — same contract as {vars}.
+  assert.equal(subCopy('mgUpdated', {}), 'Updated — you now watch {n} {n|plan|plans}.');
+  // No other count-bearing SUB_COPY string ships a hardcoded plural next to a
+  // {placeholder} count — the matrix above covers every one that exists.
+  for (const [k, v] of Object.entries(SUB_COPY)) {
+    assert.ok(!/\{n\} plans?\b/.test(v), `unpluralized count template in SUB_COPY.${k}`);
+  }
 });
 
 // ---- picker + plan index (FE-U16 / FE-U17 / FE-U18) -------------------------
@@ -654,6 +677,57 @@ test('routeOutcome: manage rows — uniform not-found, idempotent delete', () =>
   assert.deepEqual(routeOutcome('delete', { status: 0 }), { ui: 'banner', copy: 'errServer' });
 });
 
+// ============ round-2 fix — manage deep-link + update safety (beta F44) ======
+// The regression: ?manage=1 opened the panel at module boot, BEFORE the first
+// snapshot, so planMap was empty; showLoaded filtered the saved planIds
+// through that empty map → zero pre-checked rows while the summary still said
+// "You watch N plans" — and Update then silently dropped every saved plan.
+
+test('manageLoadModel: saved ids pre-check verbatim once a snapshot exists', () => {
+  const snap = { state: pickerState(), receivedAt: NOW };
+  const m = manageLoadModel(['l2', 'h1'], snap);
+  assert.equal(m.ready, true);
+  assert.deepEqual([...m.checked].sort(), ['h1', 'l2']);
+  assert.equal(m.summary, 'You watch 2 plans. Edit the list, or clear everything to unsubscribe.');
+  // The pre-check actually lands in the rendered rows (the regression proof).
+  const html = pickerHTML(snap.state, m.checked, true);
+  assert.match(html, /data-plan-id="l2" data-loc="lax" checked/);
+  assert.match(html, /data-plan-id="h1" data-loc="hkg" checked/);
+  assert.doesNotMatch(html, /data-plan-id="l1" data-loc="lax" checked/);
+  // Saved ids are NEVER filtered through a plan index — an id missing from the
+  // snapshot stays in the checked set (harmless to render, and updateDraft
+  // preserves it); silent narrowing is what caused the data loss.
+  const ghost = manageLoadModel(['l2', 'ghost'], snap);
+  assert.deepEqual([...ghost.checked].sort(), ['ghost', 'l2']);
+});
+
+test('manageLoadModel: no snapshot → loading state, summary still speaks the true count', () => {
+  for (const snap of [null, undefined, {}, { state: null }]) {
+    const m = manageLoadModel(['l1', 'l2', 'h1'], snap);
+    assert.equal(m.ready, false, String(snap));
+    assert.deepEqual([...m.checked].sort(), ['h1', 'l1', 'l2']); // nothing lost while loading
+    assert.equal(m.summary, 'You watch 3 plans. Edit the list, or clear everything to unsubscribe.');
+  }
+  // Summary count pluralizes (same F44 sweep as SUB_COPY).
+  assert.equal(manageLoadModel(['l1'], null).summary, 'You watch 1 plan. Edit the list, or clear everything to unsubscribe.');
+});
+
+test('updateDraft: an Update can never drop a saved-but-unrendered plan', () => {
+  // Picker still loading (zero rendered rows): the draft IS the saved set.
+  assert.deepEqual(updateDraft([], [], ['a', 'b']), ['a', 'b']);
+  // A saved plan that never rendered as a row survives; a rendered-and-
+  // unchecked row is an explicit uncheck and drops.
+  assert.deepEqual(updateDraft(['a'], ['a', 'b'], ['a', 'b', 'c']), ['a', 'c']);
+  // Fully rendered picker, all explicitly unchecked → empty draft (the
+  // unsubscribe path stays reachable — nothing is resurrected).
+  assert.deepEqual(updateDraft([], ['a', 'b'], ['a', 'b']), []);
+  // Newly checked rows join; no duplicates when saved ids are also checked.
+  assert.deepEqual(updateDraft(['a', 'x'], ['a', 'b', 'x'], ['a', 'c']), ['a', 'x', 'c']);
+  // Null/absent saved set (defensive) → the visible checks alone.
+  assert.deepEqual(updateDraft(['a'], ['a'], null), ['a']);
+  assert.deepEqual(updateDraft(['a'], ['a'], undefined), ['a']);
+});
+
 // ================= static read-only audit — rewritten, never deleted =========
 // Round-1's "no method:/POST in board-server/public/" becomes an allowlist
 // (TECH §10 deliberate repeal): mutating fetches exist in exactly one file,
@@ -700,6 +774,7 @@ test('static audit: no storage APIs or side channels anywhere in the bundle', ()
 test('static audit: board.js stays read-only and exports getLatest', () => {
   const src = readFileSync(join(PUB, 'js', 'board.js'), 'utf8');
   assert.match(src, /export function getLatest/);
+  assert.match(src, /export function firstSnapshot/); // one-shot F44 deep-link hook
   assert.doesNotMatch(src, /method:/); // the poll loop never mutates
   assert.doesNotMatch(src, /no POST anywhere/); // header claim repealed, scoped
   assert.match(src, /mutations live in js\/subscribe\.js/); // scoped repeal claim present
@@ -722,6 +797,14 @@ test('index.html: panel skeleton carries every binding id from DESIGN §12 / TEC
   ]) {
     assert.ok(html.includes(`id="${id}"`), `missing id ${id}`);
   }
+  // Token inputs are type=password (round-2 hygiene fix): a pasted real token
+  // never sits readable on screen or in screenshots. Chat id fields stay text.
+  assert.match(html, /<input id="fldToken" type="password" autocomplete="off" spellcheck="false"/);
+  assert.match(html, /<input id="mgToken" type="password" autocomplete="off" spellcheck="false"/);
+  assert.doesNotMatch(html, /id="(?:fldToken|mgToken)" type="text"/);
+  assert.match(html, /<input id="fldChat" inputmode="numeric" autocomplete="off"/);
+  assert.match(html, /<input id="mgChat" inputmode="numeric" autocomplete="off"/);
+  assert.doesNotMatch(html, /id="(?:fldChat|mgChat)" type="password"/);
   // ONE status region named subStatus, role=status (both tabs share it).
   assert.equal([...html.matchAll(/id="subStatus"/g)].length, 1);
   assert.match(html, /id="subStatus" role="status" aria-live="polite"/);
