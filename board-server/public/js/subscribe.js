@@ -28,6 +28,32 @@ export function parseRetryAfter(h) {
   return Number.isFinite(n) && n > 0 ? n : 60;
 }
 
+/**
+ * Humanized countdown remainder for the rate banners (round-2 beta finding):
+ * 45 → "45s", 185 → "3m 05s", 3410 → "56m 50s", 3661 → "1h 01m 01s".
+ * Clamped at "0s" — the ticking banner never counts negative.
+ */
+export function fmtRetry(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  if (s < 60) return `${s}s`;
+  const pad = (n) => String(n).padStart(2, '0');
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${pad(s % 60)}s`;
+  return `${Math.floor(m / 60)}h ${pad(m % 60)}m ${pad(s % 60)}s`;
+}
+
+/**
+ * 1 Hz banner projection: (deadline, now) → the ticking banner text, or
+ * {expired:true} at/after the deadline — the SAME instant updateTray's
+ * `deadlines[key] > now` gate reopens the submit primary, so "banner clears"
+ * and "button re-enables" can never disagree.
+ */
+export function rateState(deadlineMs, nowMs) {
+  const left = Math.ceil((deadlineMs - nowMs) / 1000);
+  if (left <= 0) return { expired: true, text: null };
+  return { expired: false, text: subCopy('errRate', { t: fmtRetry(left) }) };
+}
+
 /** The one POST transport — → {status, reason, retryAfter, body}, NEVER throws. */
 export async function api(path, body, fetchFn = globalThis.fetch) {
   try {
@@ -125,6 +151,8 @@ const deadlines = { sub: 0, chat: 0, mg: 0 }; // rate-limit deadlines (epoch ms)
 const bannerRate = { sub: false, mg: false }; // banner currently counting down
 let rateTimer = null; // 1 Hz, runs only while a countdown is visible
 let srDebounce = null;
+let addChipTimer = null; // bell-add confirmation chip, copychip-style timeout
+const ADD_CHIP_MS = 4000;
 
 async function boot() {
   try {
@@ -174,6 +202,25 @@ function settleEsc() {
     escDeferred = false;
     closePanel();
   }
+}
+
+// Bell-add confirmation (beta finding 2): a bell click that lands in an
+// in-progress session names what it just added near the tray — the resumed
+// step may not show the new checkmark. Shown/hidden on the copychip timeout
+// idiom; role="status" on the chip announces it politely; textContent only.
+function showAddChip(name) {
+  const el = $('#addChip');
+  el.hidden = false;
+  el.textContent = subCopy('bellAdded', { name });
+  clearTimeout(addChipTimer);
+  addChipTimer = setTimeout(() => {
+    el.hidden = true;
+  }, ADD_CHIP_MS);
+}
+
+function hideAddChip() {
+  clearTimeout(addChipTimer);
+  $('#addChip').hidden = true;
 }
 
 // ---------- picker ----------
@@ -232,10 +279,16 @@ export function openPanel({ tab = 'subscribe', preselect = null } = {}) {
   shell.setAttribute('inert', '');
   shell.setAttribute('aria-hidden', 'true'); // belt-and-braces for pre-inert engines
   if (subPhase === 'success') resetToStep1(); // next open resumes at step 1, selection intact
-  if (preselect != null) draft.add(String(preselect));
+  const preId = preselect != null ? String(preselect) : null;
+  // A fresh session (empty draft) keeps the round-2 behavior byte-identical:
+  // step 1 opens with the plan checked, no chip. Only an ADD to an existing
+  // selection confirms itself — whatever step the session resumes on.
+  const addsToSession = preId != null && draft.size > 0 && !draft.has(preId);
+  if (preId != null) draft.add(preId);
   rebuildPicker(preselect);
   restoreRates();
   selectTab(tab);
+  if (addsToSession && planMap.has(preId)) showAddChip(planMap.get(preId).name);
   $(tab === 'manage' ? '#tabManage' : '#tabSubscribe').focus();
 }
 
@@ -247,6 +300,7 @@ export function closePanel() {
   shell.removeAttribute('inert');
   shell.removeAttribute('aria-hidden');
   stopRateTicker(); // deadlines persist; the countdown re-renders on reopen
+  hideAddChip(); // a stale add-chip never greets the next open
   if (invoker?.isConnected) invoker.focus();
   else document.body.focus?.();
 }
@@ -341,7 +395,7 @@ function showBanner(key, copyKey, retrySec) {
   if (retrySec != null) {
     deadlines[key] = Date.now() + retrySec * 1000;
     bannerRate[key] = true;
-    el.textContent = subCopy('errRate', { s: retrySec });
+    el.textContent = rateState(deadlines[key], Date.now()).text;
     startRateTicker();
   } else {
     bannerRate[key] = false;
@@ -356,7 +410,7 @@ function restoreRates() {
     if (deadlines[key] > nowMs) {
       bannerRate[key] = true;
       const el = bannerEl(key);
-      el.textContent = subCopy('errRate', { s: Math.ceil((deadlines[key] - nowMs) / 1000) });
+      el.textContent = rateState(deadlines[key], nowMs).text;
       el.hidden = false;
       startRateTicker();
     }
@@ -379,13 +433,13 @@ function rateTick() {
   let active = false;
   for (const key of ['sub', 'mg']) {
     if (!bannerRate[key]) continue;
-    const left = Math.ceil((deadlines[key] - nowMs) / 1000);
-    if (left > 0) {
-      bannerEl(key).textContent = subCopy('errRate', { s: left });
+    const st = rateState(deadlines[key], nowMs);
+    if (!st.expired) {
+      bannerEl(key).textContent = st.text;
       active = true;
     } else {
-      hideBanner(key);
-      updateTray();
+      hideBanner(key); // deadline reached: the banner clears…
+      updateTray(); // …and the deadline gate reopens the primary, form untouched
     }
   }
   if (deadlines.chat > nowMs) active = true;
@@ -478,7 +532,7 @@ async function doFindChat() {
     const s = res.retryAfter ?? 60;
     deadlines.chat = Date.now() + s * 1000;
     startRateTicker();
-    setStatus(subCopy('errRate', { s }), 'bad');
+    setStatus(subCopy('errRate', { t: fmtRetry(s) }), 'bad');
   } else {
     setStatus(SUB_COPY[out.copy], 'bad');
   }

@@ -111,7 +111,7 @@
           <ol class="steps">
             <li>Open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> in Telegram, send
               <span class="copychip"><span>/newbot</span><button type="button" data-copy="/newbot">Copy</button></span>
-              and follow the two prompts. BotFather replies with a <b>token</b> — copy it.</li>
+              and follow the two prompts (a name, then a username ending in 'bot'). BotFather replies with a <b>token</b> — copy it.</li>
             <li class="gate">Open your new bot's chat and press START. Telegram only lets a bot message people who started it.</li>
             <li>Paste the token below, then find your chat id.</li>
           </ol>
@@ -202,8 +202,11 @@
     <p class="status-line" id="subStatus" role="status" aria-live="polite"></p>
     <span class="sr-only" role="status" id="pickCountSr"></span>
 
-    <!-- pinned tray: live count + exactly ONE visible primary per state -->
+    <!-- pinned tray: live count + exactly ONE visible primary per state.
+         #addChip floats above the tray to confirm a bell-add into an
+         in-progress session (beta finding 2) — no layout shift, brief. -->
     <div class="sub-tray" id="pickTray">
+      <span class="add-chip" id="addChip" role="status" hidden></span>
       <span class="tray-count zero" id="pickCount">0 selected</span>
       <span class="tray-hint" id="pickHint">pick at least one plan</span>
       <span class="tray-actions">

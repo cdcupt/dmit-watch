@@ -40,6 +40,8 @@ import {
   CHAT_RE,
   API_TIMEOUT_MS,
   parseRetryAfter,
+  fmtRetry,
+  rateState,
   api,
   routeOutcome,
 } from '../board-server/public/js/subscribe.js';
@@ -406,7 +408,10 @@ test('SUB_COPY: frozen, and the 300 s renders equal the DESIGN-locked literals',
   assert.equal(SUB_COPY.errChatFormat, 'A chat id is just a number, like 521934882.');
   assert.equal(SUB_COPY.errChatNotFound, "Your bot can't message you yet — open it in Telegram, press Start, then retry.");
   assert.equal(SUB_COPY.errDiscover, "No chat found — open your new bot, press Start, then tap Find again. (A busy bot with a webhook can't be auto-read — paste the id manually.)");
-  assert.equal(SUB_COPY.errRate, 'Too many attempts — try again in {s}s.');
+  // Round-2 beta amendment: {t} carries the fmtRetry-humanized remainder —
+  // deliberately diverges from DESIGN §7's raw-seconds {s}s literal.
+  assert.equal(SUB_COPY.errRate, 'Too many attempts — try again in {t}.');
+  assert.equal(SUB_COPY.bellAdded, '+ {name} added');
   assert.equal(SUB_COPY.errServer, 'Something broke on our side — nothing was saved. Try again in a minute.');
   assert.equal(SUB_COPY.mgNotFound, 'No subscription found for that token + chat id.');
   assert.equal(SUB_COPY.mgUpdated, 'Updated — you now watch {n} plans.');
@@ -415,9 +420,10 @@ test('SUB_COPY: frozen, and the 300 s renders equal the DESIGN-locked literals',
   // The two TECH-added locked keys.
   assert.equal(SUB_COPY.errCap, "The board's subscriber list is full — nothing was saved. Try again later.");
   assert.equal(SUB_COPY.chatFound, "Found it — that's your chat id.");
-  // Template rendering: {n}/{s} substitution, unknown vars left intact.
+  // Template rendering: {n}/{t}/{name} substitution, unknown vars left intact.
   assert.equal(subCopy('mergedBody', { n: 3 }), 'Subscription updated — you now watch 3 plans.');
-  assert.equal(subCopy('errRate', { s: 40 }), 'Too many attempts — try again in 40s.');
+  assert.equal(subCopy('errRate', { t: fmtRetry(40) }), 'Too many attempts — try again in 40s.');
+  assert.equal(subCopy('bellAdded', { name: 'HKG.AN5.Pro.MINI' }), '+ HKG.AN5.Pro.MINI added');
 });
 
 // ---- picker + plan index (FE-U16 / FE-U17 / FE-U18) -------------------------
@@ -545,6 +551,32 @@ test('parseRetryAfter: integer seconds; absent/unparseable/non-positive → 60',
   assert.equal(parseRetryAfter('soon'), 60);
   assert.equal(parseRetryAfter('0'), 60);
   assert.equal(parseRetryAfter('-3'), 60);
+});
+
+// Round-2 beta finding: 429 banners tick a HUMANIZED remainder at 1 Hz.
+test('fmtRetry: humanized remainder — seconds, zero-padded m/s, hour form, clamped', () => {
+  assert.equal(fmtRetry(45), '45s');
+  assert.equal(fmtRetry(59), '59s');
+  assert.equal(fmtRetry(60), '1m 00s');
+  assert.equal(fmtRetry(185), '3m 05s');
+  assert.equal(fmtRetry(3410), '56m 50s'); // the beta report's raw "3410s"
+  assert.equal(fmtRetry(3661), '1h 01m 01s');
+  assert.equal(fmtRetry(0), '0s');
+  assert.equal(fmtRetry(-3), '0s'); // never negative
+  assert.equal(fmtRetry(1.9), '1s'); // floored, no fractional seconds
+});
+
+test('rateState: ticking banner text until the deadline; expired AT it — same gate as updateTray', () => {
+  const D = NOW + 90_000; // Retry-After: 90
+  assert.deepEqual(rateState(D, NOW), { expired: false, text: 'Too many attempts — try again in 1m 30s.' });
+  assert.deepEqual(rateState(D, NOW + 1000), { expired: false, text: 'Too many attempts — try again in 1m 29s.' }); // 1 Hz tick observable
+  assert.deepEqual(rateState(D, D - 1000), { expired: false, text: 'Too many attempts — try again in 1s.' });
+  assert.deepEqual(rateState(D, D - 1), { expired: false, text: 'Too many attempts — try again in 1s.' }); // ceil — never shows 0s while gated
+  // The deadline→re-enable transition: banner clears and the submit gate
+  // (deadlines[key] > now, i.e. NOT expired) reopens at the same instant.
+  assert.deepEqual(rateState(D, D), { expired: true, text: null });
+  assert.deepEqual(rateState(D, D + 5000), { expired: true, text: null });
+  assert.deepEqual(rateState(0, NOW), { expired: true, text: null }); // no deadline stored ⇒ never gated
 });
 
 test('api(): JSON POST with 12 s abort, no-store, status-only result — never throws', async () => {
@@ -686,7 +718,7 @@ test('index.html: panel skeleton carries every binding id from DESIGN §12 / TEC
     'mgNotFound', 'mgLoaded', 'mgSummary', 'mgPicker', 'mgConfirm', 'mgConfirmYes', 'mgConfirmNo',
     'mgDoneCard', 'mgBanner', 'subStatus', 'pickCountSr', 'pickTray', 'pickCount', 'pickHint',
     'backTo1', 'toStep2', 'subSubmit', 'subDone', 'mgLoad', 'mgUpdate', 'mgUnsub', 'mgClose',
-    'cadExplainer', 'cadFooter',
+    'cadExplainer', 'cadFooter', 'addChip',
   ]) {
     assert.ok(html.includes(`id="${id}"`), `missing id ${id}`);
   }
@@ -703,4 +735,6 @@ test('index.html: panel skeleton carries every binding id from DESIGN §12 / TEC
   assert.ok(html.includes(SUB_COPY.ctaGlobal));
   assert.ok(html.includes(SUB_COPY.mgNotFound));
   assert.ok(html.includes(SUB_COPY.submitLabel));
+  // BotFather step names its two prompts (round-2 beta copy fix), one sentence.
+  assert.ok(html.includes("and follow the two prompts (a name, then a username ending in 'bot')."));
 });

@@ -93,13 +93,18 @@ export const SUB_COPY = Object.freeze({
   errChatNotFound: "Your bot can't message you yet — open it in Telegram, press Start, then retry.",
   errDiscover:
     "No chat found — open your new bot, press Start, then tap Find again. (A busy bot with a webhook can't be auto-read — paste the id manually.)",
-  errRate: 'Too many attempts — try again in {s}s.',
+  // Round-2 beta amendment: {t} is a pre-humanized remainder ("56m 50s", via
+  // fmtRetry) — the raw-seconds {s}s form read as a wall of digits at 3410 s.
+  errRate: 'Too many attempts — try again in {t}.',
   errCap: "The board's subscriber list is full — nothing was saved. Try again later.",
   errServer: 'Something broke on our side — nothing was saved. Try again in a minute.',
   chatFound: "Found it — that's your chat id.",
   mgNotFound: 'No subscription found for that token + chat id.',
   mgUpdated: 'Updated — you now watch {n} plans.',
   mgGone: 'Unsubscribed. Your token and plan list were deleted.',
+  // Round-2 beta amendment: a bell click that lands in an in-progress session
+  // confirms the add by name near the tray (rendered via textContent, unescaped).
+  bellAdded: '+ {name} added',
   privacy:
     "We store exactly three things: your bot token, your chat id, your plan list. No account, no email, no cookies. Your bot can only message people who pressed Start on it — that's you. Unsubscribe here anytime, or send /revoke to @BotFather — that kills the token instantly.",
 });
