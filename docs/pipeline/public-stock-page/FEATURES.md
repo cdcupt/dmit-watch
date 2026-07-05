@@ -48,3 +48,23 @@ beta pass — no silent skips.
 ## Watcher/back-end behaviors visible from outside
 - F34 Freshness recovers after watcher restart (receivedAt advances again — orchestrator's proof covers the transition; verify current freshness live)
 - F35 Snapshot survives board-server restart (BLOCKED for testers — no server access; orchestrator/QA evidence stands)
+
+## Round 2 — Telegram subscriptions + 5-minute cadence (2026-07-05)
+- F36 Subscribe entry: "🔔 Get restock alerts" pill in the stats strip opens the panel
+- F37 Per-card "🔔 Notify me" on OUT/Checking cards opens the panel with that plan preselected (IN cards have no bell)
+- F38 Panel step 1: plan picker grouped by datacenter with tri-state select-all + live "N selected" count
+- F39 Panel step 2: BotFather instructions with copyable commands; "press Start" called out; token + chat id fields
+- F40 Inline validation: malformed token / non-numeric chat id show actionable errors on blur
+- F41 "Find my chat id" helper works (or fails with the actionable "press Start first" state)
+- F42 Subscribe success pane: "check your Telegram" + rendered preview of the confirmation card (real card arrives — verify with a real disposable token if provided, else BLOCKED)
+- F43 Errors map to actions: Telegram-rejected token → 422 copy; rate limit → 429 countdown; server error → safe-retry copy
+- F44 Manage tab: token + chat id → current plans pre-checked; update sends 🔄 receipt; unsubscribe silent; unknown pair → uniform "no subscription found"
+- F45 ?manage=1 deep link opens the panel on the manage tab
+- F46 Panel a11y: focus trapped, Esc closes, background inert, status region announces state changes
+- F47 Panel responsive: drawer ≥720px, full-screen sheet below; zero overflow at 320/390 with panel open
+- F48 Page copy reflects 5-min cadence everywhere ("about every 5 minutes" — no "~60 s" remnants)
+- F49 Freshness ladder recalibrated: green well past 5 min of quiet; stale banner only at genuinely dead watcher (>20 min)
+- F50 /api/state envelope carries cadenceSec: 300
+- F51 Subscription API abuse checks: rate limits answer 429 + Retry-After; oversized bodies 413; malformed 400; unknown lookup 404 (uniform); no token value ever echoed
+- F52 Read-only board behavior unchanged: alarm/audio/notifications still absent; Buy links still work
+- F53 Digest card on live restock — BLOCKED live (cannot force a restock); QA's local E2E + real-token proof stand as evidence
