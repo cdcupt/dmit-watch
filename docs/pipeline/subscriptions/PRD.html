@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD — Telegram Subscriptions + 5-minute Cadence</title>
+<style>
+  :root{
+    --ink:#111418; --muted:#5b6572; --line:#e3e7ec; --bg:#ffffff; --soft:#f6f8fa;
+    --accent:#0b62d6; --ok:#0a8a3a; --bad:#c62828; --warn:#b26a00; --chip:#eef3fb;
+    --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:980px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:1.7rem;line-height:1.25;margin:.2rem 0 .3rem}
+  h2{font-size:1.22rem;margin:2.4rem 0 .7rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+  h3{font-size:1rem;margin:1.3rem 0 .4rem}
+  p,li{overflow-wrap:anywhere}
+  p{margin:.5rem 0}
+  .sub{color:var(--muted);font-size:.95rem}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin:.8rem 0 0}
+  .chip{background:var(--chip);color:var(--accent);border-radius:100px;padding:2px 12px;font-size:.8rem;font-weight:600}
+  .chip.gray{background:var(--soft);color:var(--muted)}
+  figure{margin:1rem 0}
+  .svgwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:10px}
+  .svgwrap svg{display:block;max-width:100%;height:auto;min-width:680px;margin:0 auto}
+  figcaption{color:var(--muted);font-size:.85rem;margin-top:6px}
+  table{border-collapse:collapse;width:100%;font-size:.92rem}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  .tblwrap table{min-width:640px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{background:var(--soft);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  code{font-family:var(--mono);font-size:.85em;background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .in{color:var(--ok);font-weight:700}.out{color:var(--bad);font-weight:700}.warn{color:var(--warn);font-weight:700}
+  ul{margin:.4rem 0 .4rem 1.2rem;padding:0}
+  li{margin:.3rem 0}
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--soft);border-radius:8px;padding:12px 16px;margin:1rem 0}
+  .toc{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:1.2rem 0}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc ol{margin:.3rem 0 .2rem 1.2rem;padding:0}
+  .toc li{margin:.15rem 0}
+</style>
+</head>
+<body>
+<main>
+
+<h1>PRD — Telegram Subscriptions + 5-minute Cadence</h1>
+<p class="sub">Round 2 for the public stock board at <code>vps-stock.daichenlab.com</code>: visitors can subscribe their own Telegram bot to exact plans and get ONE digest card when those plans restock; the watcher's provider polling stretches from ~60 s to ~5 min.</p>
+<div class="meta">
+  <span class="chip">PRD · final</span>
+  <span class="chip gray">feature: subscriptions</span>
+  <span class="chip gray">repo: cdcupt/dmit-watch (PUBLIC)</span>
+  <span class="chip gray">2026-07-05</span>
+</div>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#glance">★ At a glance</a></li>
+    <li><a href="#problem">Problem &amp; context</a></li>
+    <li><a href="#goals">Goals &amp; success criteria</a></li>
+    <li><a href="#scope">Scope</a></li>
+    <li><a href="#decisions">Key decisions &amp; constraints</a></li>
+    <li><a href="#digest">The digest card</a></li>
+    <li><a href="#risks">Risks &amp; mitigations</a></li>
+    <li><a href="#rollout">Rollout</a></li>
+  </ol>
+</div>
+
+<h2 id="glance">1 · ★ At a glance</h2>
+<figure>
+<div class="svgwrap">
+<svg viewBox="0 0 1080 500" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5b6572"/>
+    </marker>
+    <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0b62d6"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0a8a3a"/>
+    </marker>
+  </defs>
+
+  <!-- watcher host -->
+  <rect x="20" y="30" width="240" height="150" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="40" y="58" font-size="14" font-weight="700" fill="#111418">Watcher (residential VPS)</text>
+  <rect x="40" y="74" width="200" height="44" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="55" y="92" font-size="12" font-weight="600" fill="#b26a00">CHANGED: polls every ~5 min</text>
+  <text x="55" y="108" font-size="11" fill="#5b6572">was ~60 s · cadenceSec 300</text>
+  <rect x="40" y="126" width="200" height="40" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="55" y="144" font-size="12" fill="#111418">push per family poll</text>
+  <text x="55" y="158" font-size="11" fill="#5b6572">unchanged contract</text>
+
+  <line x1="260" y1="105" x2="330" y2="105" stroke="#0b62d6" stroke-width="2.5" marker-end="url(#arrB)"/>
+  <text x="295" y="92" font-size="11" font-weight="700" fill="#0b62d6" text-anchor="middle">push</text>
+
+  <!-- board server -->
+  <rect x="330" y="30" width="400" height="290" rx="12" fill="#eef3fb" stroke="#c9d2dc"/>
+  <text x="350" y="58" font-size="14" font-weight="700" fill="#111418">board-server (prod host)</text>
+
+  <rect x="350" y="74" width="170" height="52" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="362" y="94" font-size="12" font-weight="600" fill="#111418">snapshot store</text>
+  <text x="362" y="110" font-size="11" fill="#5b6572">memory + file (as today)</text>
+
+  <rect x="540" y="74" width="170" height="52" rx="8" fill="#fff" stroke="#0a8a3a"/>
+  <text x="552" y="94" font-size="12" font-weight="600" fill="#0a8a3a">NEW: edge detector</text>
+  <text x="552" y="110" font-size="11" fill="#5b6572">diff snapshots · OUT→IN · armed</text>
+
+  <rect x="350" y="140" width="170" height="52" rx="8" fill="#fff" stroke="#0a8a3a"/>
+  <text x="362" y="160" font-size="12" font-weight="600" fill="#0a8a3a">NEW: subscriber store</text>
+  <text x="362" y="176" font-size="11" fill="#5b6572">bot token + chat id + planIds</text>
+
+  <rect x="540" y="140" width="170" height="52" rx="8" fill="#fff" stroke="#0a8a3a"/>
+  <text x="552" y="160" font-size="12" font-weight="600" fill="#0a8a3a">NEW: notifier</text>
+  <text x="552" y="176" font-size="11" fill="#5b6572">ONE digest card / event</text>
+
+  <rect x="350" y="206" width="360" height="48" rx="8" fill="#fff" stroke="#0a8a3a"/>
+  <text x="362" y="226" font-size="12" font-weight="600" fill="#0a8a3a">NEW: subscribe API + page UI</text>
+  <text x="362" y="242" font-size="11" fill="#5b6572">create / verify (test message) / manage / unsubscribe · per-plan picker</text>
+
+  <rect x="350" y="264" width="360" height="40" rx="8" fill="#fff" stroke="#c9d2dc"/>
+  <text x="362" y="282" font-size="12" fill="#111418">public board page — freshness ladder recalibrated to 5-min polls</text>
+  <text x="362" y="296" font-size="11" fill="#5b6572">explainer copy "~5 min" · stale banner still honest</text>
+
+  <!-- telegram -->
+  <line x1="730" y1="166" x2="810" y2="166" stroke="#0a8a3a" stroke-width="2.5" marker-end="url(#arrG)"/>
+  <text x="770" y="152" font-size="11" font-weight="700" fill="#0a8a3a" text-anchor="middle">sendMessage</text>
+  <rect x="810" y="110" width="250" height="110" rx="12" fill="#f6f8fa" stroke="#e3e7ec"/>
+  <text x="830" y="138" font-size="14" font-weight="700" fill="#111418">Subscriber's Telegram</text>
+  <text x="830" y="160" font-size="12" fill="#111418">via THEIR OWN bot token</text>
+  <text x="830" y="178" font-size="11" fill="#5b6572">user creates a bot with @BotFather;</text>
+  <text x="830" y="193" font-size="11" fill="#5b6572">our server only borrows it to deliver</text>
+  <text x="830" y="208" font-size="11" fill="#5b6572">their digest — can only message them</text>
+
+  <!-- decisions strip -->
+  <rect x="20" y="345" width="1040" height="140" rx="12" fill="#fff" stroke="#e3e7ec"/>
+  <text x="40" y="372" font-size="13" font-weight="700" fill="#111418">Key decisions (PM, 2026-07-05)</text>
+  <text x="40" y="396" font-size="12" fill="#111418">① Provider polls stretch to ~5 min — alerts may lag a restock by up to ~5 min (accepted).</text>
+  <text x="40" y="416" font-size="12" fill="#111418">② BYO Telegram bot: subscriber supplies their own bot token + chat id — no shared service bot.</text>
+  <text x="40" y="436" font-size="12" fill="#111418">③ Per-plan subscriptions: users pick the exact plans they care about.</text>
+  <text x="40" y="456" font-size="12" fill="#111418">④ ONE digest card per restock event — all newly-IN subscribed plans in a single message, never one ping per plan.</text>
+  <text x="40" y="476" font-size="12" fill="#b26a00">⑤ Repeals round-1's "server never sends Telegram": the board-server is now the ONLY thing that sends, on behalf of subscribers.</text>
+</svg>
+</div>
+<figcaption>Round 2 on one screen: cadence stretches to 5 min; the board-server gains edge detection, a subscriber store, a digest notifier, and a subscribe UI/API — the watcher contract is untouched.</figcaption>
+</figure>
+
+<h2 id="problem">2 · Problem &amp; context</h2>
+<p>The board answers "what's in stock <em>right now</em>?" — but only if you happen to be looking. The operator no longer receives restock alerts (Telegram was disabled in round 1 by design), and visitors have no way to be told when the plan they want comes back. Meanwhile, polling providers every ~60 s is more aggressive than the product needs.</p>
+<p>Round 2 closes both: <strong>self-serve, per-plan Telegram alerts for anyone</strong>, and a <strong>gentler ~5-minute poll cadence</strong>. Notification logic lives server-side in the board-server — it already receives every snapshot, so it can detect OUT→IN transitions by diffing; the watcher needs no new responsibilities.</p>
+
+<h2 id="goals">3 · Goals &amp; success criteria</h2>
+<ul>
+  <li><strong>R1 — 5-minute provider polling.</strong> The watcher polls each provider family every ~5 min (config change). <em>Criterion: watcher logs show ~300 s family cadence; DMIT sees ≤ 1/5th of today's requests.</em></li>
+  <li><strong>R2 — Honest freshness at the new cadence.</strong> The page's freshness ladder and copy are recalibrated so normal 5-min operation never shows amber/stale, while a genuinely dead watcher still surfaces prominently. <em>Criterion: 24 h of normal operation with zero false stale banners; stopping the watcher still raises the banner.</em></li>
+  <li><strong>R3 — Per-plan subscribe.</strong> A visitor can pick exact plans, provide their own bot token + chat id, and get a <strong>confirmation message</strong> on subscribe (which also proves the token/chat work). <em>Criterion: end-to-end subscribe → confirmation card arrives in Telegram.</em></li>
+  <li><strong>R4 — One digest card per restock event.</strong> When subscribed plans flip OUT→IN, the subscriber receives ONE message listing all their newly-IN plans (name, price, datacenter, buy link) — batched across families within a short window; a plan re-alerts only after it has gone OUT again (armed semantics). <em>Criterion: a multi-plan restock produces exactly one message per subscriber.</em></li>
+  <li><strong>R5 — Manage &amp; unsubscribe.</strong> Subscribers can view/update their plan list and unsubscribe, authenticated by the same token + chat id pair. <em>Criterion: full lifecycle works from the page.</em></li>
+  <li><strong>R6 — Abuse-safe &amp; private.</strong> Subscribe endpoints are rate-limited and validated; tokens are stored server-side with restrictive permissions, never logged, never echoed to any public endpoint, never in the repo. Failing tokens (revoked bots) auto-disable after repeated failures. <em>Criterion: QA's abuse suite passes; a revoked token stops being retried.</em></li>
+  <li><strong>R7 — UNKNOWN never notifies.</strong> Only a confirmed IN triggers a digest (consistent with the detector's false-IN-impossible doctrine). <em>Criterion: test proves UNKNOWN/checking transitions send nothing.</em></li>
+</ul>
+
+<h2 id="scope">4 · Scope</h2>
+<h3>In</h3>
+<ul>
+  <li>Watchlist cadence change (~60 s → ~300 s) + every knock-on recalibration (freshness ladder, page copy, blind-net timing review).</li>
+  <li>Board-server: snapshot diffing edge detector with per-plan armed state (persisted); subscriber store (embedded, zero-ops — e.g. <code>node:sqlite</code> on the existing data volume); Telegram sender using each subscriber's own token; digest batching window; subscribe/verify/manage/unsubscribe API; rate limiting.</li>
+  <li>Board page: subscribe UI — per-plan selection, token + chat id form with clear BotFather instructions, manage/unsubscribe flow, success/error states. No accounts, no cookies beyond what the flow strictly needs.</li>
+  <li>Docs/tests per house standard; README + setup-skill updates at publish.</li>
+</ul>
+<h3>Out (explicitly)</h3>
+<ul>
+  <li>A shared/official service bot (PM chose BYO-token; may revisit later).</li>
+  <li>Non-Telegram channels (email, webhooks, RSS).</li>
+  <li>Operator alerting on the watcher host (stays disabled — the server notifies subscribers only).</li>
+  <li>Price-drop / spec-change notifications (restock only).</li>
+  <li>Watcher-side changes beyond the cadence number.</li>
+</ul>
+
+<h2 id="decisions">5 · Key decisions &amp; constraints</h2>
+<div class="tblwrap"><table>
+  <tr><th>#</th><th>Decision</th><th>Rationale</th></tr>
+  <tr><td>D1</td><td><strong>Server-side edge detection by snapshot diffing.</strong> The board-server compares each accepted push against the previous per-plan status with armed/disarm semantics mirroring the watcher's own edge engine.</td><td>The server already sees every snapshot; the watcher contract stays frozen; subscribers' logic lives where the subscribers live.</td></tr>
+  <tr><td>D2</td><td><strong>BYO bot token + chat id</strong> is both the delivery credential and the manage/unsubscribe identity.</td><td>PM decision. Zero shared-bot ops; abuse-limited by construction (a token can only message chats that already talked to that bot — effectively only the subscriber themself).</td></tr>
+  <tr><td>D3</td><td><strong>Confirmation message on subscribe.</strong> The server sends a test card immediately; a failed send rejects the subscription.</td><td>Proves token + chat id validity at the door; no dead subscriptions.</td></tr>
+  <tr><td>D4</td><td><strong>Digest batching window.</strong> Edges collect for a short window (~60–90 s, tech doc finalizes) after the first edge before sending, so a mass restock staggered across family polls still yields ONE card.</td><td>PM requirement: one readable card, never a ping-storm. Family polls are staggered; without a window a 7-family restock could mean up to 7 messages.</td></tr>
+  <tr><td>D5</td><td><strong>Armed semantics persisted server-side.</strong> A plan that alerted stays disarmed until observed OUT again; state survives server restarts.</td><td>No duplicate alerts across restarts; mirrors the proven watcher behavior.</td></tr>
+  <tr><td>D6</td><td><strong>Embedded storage on the existing volume</strong> (<code>node:sqlite</code>), no external DB, no new npm deps.</td><td>Keeps the board-server's zero-dep, copy-one-directory deployability.</td></tr>
+  <tr><td>D7</td><td><strong>Freshness ladder derives from the poll cadence</strong> (served to the page in the API envelope) instead of hard-coded 2/5-min thresholds.</td><td>One knob: a future cadence change can't silently break staleness honesty again.</td></tr>
+  <tr><td>D8</td><td><strong>Round-1 invariant repeal, scoped:</strong> the board-server MAY reach <code>api.telegram.org</code> and nothing else; the "GET-only public surface" audit becomes "the only mutating routes are /api/push (bearer) + the subscription routes (rate-limited, validated)".</td><td>The invariant's intent (no operator alerting, no surprise egress) survives; the tests get updated deliberately rather than deleted.</td></tr>
+</table></div>
+
+<h2 id="digest">6 · The digest card (format sketch — final in DESIGN/TECH)</h2>
+<div class="callout">
+<p style="margin:0 0 6px"><strong>🟢 Restock — 3 of your plans are IN STOCK</strong> <span class="sub">(vps-stock.daichenlab.com)</span></p>
+<p style="margin:0;font-family:var(--mono);font-size:.88rem">
+• HKG.AS3.Pro.TINY — $39.90/mo — Hong Kong · <a href="#">Buy now</a><br>
+• HKG.AN5.Pro.MINI — $149.90/mo — Hong Kong · <a href="#">Buy now</a><br>
+• TYO.AS3.Pro.STARTER — $45.90/mo — Tokyo · <a href="#">Buy now</a></p>
+<p class="sub" style="margin:6px 0 0">as of 14:32 UTC · data can lag ~5 min · manage subscription: vps-stock.daichenlab.com</p>
+</div>
+<ul>
+  <li>One message per subscriber per event window; only THEIR subscribed plans appear.</li>
+  <li>Each line: plan · price · datacenter · direct buy link. Header counts; footer carries the honesty note + manage pointer.</li>
+  <li>Confirmation card on subscribe uses the same visual language ("You're subscribed to N plans: …").</li>
+</ul>
+
+<h2 id="risks">7 · Risks &amp; mitigations</h2>
+<div class="tblwrap"><table>
+  <tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>
+  <tr><td>5-min cadence misses ultra-short restocks</td><td>Subscriber loses a buying window</td><td>Accepted by PM (①). The digest footer states the lag honestly.</td></tr>
+  <tr><td>Storing third-party bot tokens</td><td>Credential exposure if the host is compromised</td><td>Tokens live only in the store on the data volume (0600-class perms), never logged/echoed; docs tell users the token can be revoked in one tap via @BotFather; auto-disable on repeated send failures.</td></tr>
+  <tr><td>Subscription endpoint abuse (spam signups, token stuffing)</td><td>Server load; Telegram probing</td><td>Per-IP rate limits + body caps; confirmation-send acts as a validity gate; store size cap with clear 429/413 errors.</td></tr>
+  <tr><td>Telegram API slow/down at notify time</td><td>Delayed/missed digests</td><td>Bounded retries with backoff inside the event window; failures logged + counted per subscriber; armed state only cleared on confirmed send... (tech doc finalizes exact semantics so a failed send does not permanently swallow an alert).</td></tr>
+  <tr><td>Ladder recalibration wrong → false "stale" banners at 5-min cadence</td><td>Trust erosion</td><td>D7 (cadence-derived thresholds) + a 24 h soak criterion (R2) before Gate 3 sign-off.</td></tr>
+  <tr><td>Mass restock = burst of sends across many subscribers</td><td>Rate limits on user bots (per-bot limits are per-token — fine); server burst</td><td>Each subscriber has their own token (independent limits); sends are queued with modest concurrency.</td></tr>
+</table></div>
+
+<h2 id="rollout">8 · Rollout</h2>
+<ul>
+  <li>Branch <code>feat/subscriptions</code>; artifacts under <code>docs/pipeline/subscriptions/</code>; same gate discipline (Design → Gate 1, Tech → Gate 2, build/QA/beta → Gate 3).</li>
+  <li>Cadence config + ladder recalibration can ship in the same PR; the watcher host picks up the cadence via git pull + service restart.</li>
+  <li>Deploy = update <code>/opt/vps-stock/app</code> on the prod host (data volume untouched; new store file appears beside the snapshot) + watcher restart on the residential VPS.</li>
+  <li>R2's 24 h soak runs between deploy and final sign-off; the beta panel exercises subscribe/manage/digest with a real disposable bot token.</li>
+</ul>
+
+</main>
+</body>
+</html>
