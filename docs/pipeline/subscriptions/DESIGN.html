@@ -704,6 +704,6 @@ manage: vps-stock.daichenlab.com/?manage=1</pre>
   <strong>Reference mockup.</strong> <code>MOCKUP.html</code> in this folder is a self-contained, clickable rendering of this spec on the shipped board's look: live plan picking with counts, blur validation, simulated chat-id discovery, every submit outcome (success / merged / 422 token / 422 chat / 429 / 5xx) reachable via a demo control strip, the full manage flow (found / not-found / update / unsubscribe), and rendered previews of both Telegram cards. The demo controls are not part of the shipped page.
 </div>
 
-</main>
+<p class="sub" style="margin-top:2rem"><strong>Errata (2026-07-05, beta amendment):</strong> the rate-limit banner copy renders a humanized remaining time ("56m 50s"-style, 1 Hz tick, submit re-enabled at deadline) instead of the raw-seconds literal in §7, and the per-card bell shows a "+ &lt;plan&gt; added" chip when adding to an in-progress session. Commit 60a39c5.</p></main>
 </body>
 </html>
