@@ -1,0 +1,26 @@
+# dmit-watch watcher process (TECH §6 watcher-host unit).
+#
+# Replaces the Mac's launchd KeepAlive (no caffeinate — servers don't sleep).
+# CDP-attaches to the dedicated Chrome unit's :9444 exactly as before; ordering
+# + Requires= keep the pair in lockstep, and Restart=on-failure brings the
+# watcher back after a crash. Config (push URL + token; Telegram optional) lives
+# in the service user's ~/.dmit-watch/config, chmod 600 — never in this unit.
+#
+# Install: cp to /etc/systemd/system/ && systemctl daemon-reload
+#          systemctl enable --now dmit-watch
+
+[Unit]
+Description=dmit-watch restock watcher (node, CDP-attach to :9444)
+After=network-online.target dmit-watch-chrome.service
+Requires=dmit-watch-chrome.service
+Wants=network-online.target
+
+[Service]
+User=dmitwatch
+WorkingDirectory=/opt/dmit-watch
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

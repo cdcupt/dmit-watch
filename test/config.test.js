@@ -128,6 +128,20 @@ test('cooldown is short enough not to swallow a genuine brief restock', () => {
   assert.equal(wl.settings.blindEscalateSec, 10800);
 });
 
+test('loadSecrets: required:false returns null when creds are absent (Telegram optional)', () => {
+  const noFile = join(tmpdir(), 'dmit-secrets-does-not-exist');
+  // Neither cred anywhere → null, never a boot throw.
+  assert.equal(loadSecrets({ required: false, env: {}, file: noFile }), null);
+  // Half a cred pair is unusable by the notifier → also null under required:false…
+  assert.equal(loadSecrets({ required: false, env: { TELEGRAM_BOT_TOKEN: 'X' }, file: noFile }), null);
+  // …while the default required mode still fails fast, naming the missing key.
+  assert.throws(() => loadSecrets({ env: {}, file: noFile }), /TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID/);
+  assert.throws(
+    () => loadSecrets({ env: { TELEGRAM_BOT_TOKEN: 'X' }, file: noFile }),
+    /missing secret\(s\) TELEGRAM_CHAT_ID/,
+  );
+});
+
 test('loadSecrets reads the env override and enforces required creds', () => {
   const prevToken = process.env.TELEGRAM_BOT_TOKEN;
   const prevChat = process.env.TELEGRAM_CHAT_ID;
