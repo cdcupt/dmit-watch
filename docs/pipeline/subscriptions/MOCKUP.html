@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>MOCKUP — Subscriptions · VPS Stock Watch</title>
+<style>
+/* ===== board tokens + shipped styles (trimmed copy of board.css) ===== */
+:root{
+  --bg:oklch(98.6% 0.003 250); --bg-grid:oklch(96% 0.005 250);
+  --surface:oklch(100% 0 0); --surface-2:oklch(97.4% 0.006 250); --surface-3:oklch(95% 0.01 250);
+  --ink:oklch(22% 0.02 258); --ink-soft:oklch(46% 0.02 258); --ink-faint:oklch(60% 0.018 258);
+  --line:oklch(90% 0.012 250); --line-strong:oklch(82% 0.018 250);
+  --blue:oklch(54% 0.19 260); --blue-ink:oklch(47% 0.18 262); --blue-soft:oklch(96.5% 0.028 260); --blue-line:oklch(86% 0.07 260);
+  --orange:oklch(64% 0.16 52); --orange-ink:oklch(58% 0.16 50);
+  --oos-bg:oklch(94.5% 0.004 258); --oos-ink:oklch(52% 0.012 258);
+  --ok:oklch(60% 0.19 150); --ok-ink:oklch(40% 0.13 150); --ok-soft:oklch(94% 0.07 150);
+  --no:oklch(57% 0.22 27); --no-ink:oklch(45% 0.18 27); --no-soft:oklch(95.5% 0.04 27);
+  --warn:oklch(76% 0.17 80); --warn-ink:oklch(52% 0.13 70); --warn-soft:oklch(95% 0.07 82);
+  --accent:oklch(53% 0.16 248); --accent-ink:oklch(40% 0.16 248);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 1px 2px oklch(40% 0.02 258 / .06), 0 8px 24px oklch(40% 0.02 258 / .07);
+  --dur-fast:150ms; --dur:280ms; --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5;
+  background:linear-gradient(var(--bg-grid) 1px,transparent 1px) 0 0/100% 30px,
+    linear-gradient(90deg,var(--bg-grid) 1px,transparent 1px) 0 0/30px 100%,var(--bg);}
+.shell{max-width:1180px;margin:0 auto;padding:clamp(12px,2.4vw,26px)}
+a{color:var(--accent-ink)}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.sticky-zone{position:sticky;top:0;z-index:40;margin-bottom:12px}
+header.app{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;
+  background:oklch(100% 0 0 / .86);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow)}
+.brandblock .t{margin:0;font-family:var(--mono);font-weight:800;letter-spacing:-.01em;font-size:16px;text-transform:uppercase}
+.brandblock .s{margin:0;font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+.lamp{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:var(--surface);white-space:nowrap}
+.lamp .dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--ink-faint)}
+.fresh-pill .dot{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.stats{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:10px 14px;box-shadow:var(--shadow);margin-bottom:10px;font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+.stats b{color:var(--ink);font-size:14px}
+.stats .dim{color:var(--ink-faint);font-size:11px}
+.stat-hero{display:inline-flex;align-items:baseline;gap:6px;font-size:13px;font-weight:700;letter-spacing:.01em;border:1px solid transparent;border-radius:999px;padding:4px 13px}
+.stat-hero b{font-size:21px;letter-spacing:-.01em}
+.stat-hero.in1{background:var(--ok-soft);border-color:oklch(82% 0.1 150);color:var(--ok-ink)}
+.stat-hero.in1 b{color:var(--ok-ink)}
+.stat-sub{font-size:12px}.stat-sub b{font-size:14px}
+.jump{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+.jchip{font-family:var(--mono);font-size:12px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);
+  border-radius:999px;padding:6px 13px;white-space:nowrap;text-decoration:none;transition:var(--dur-fast)}
+.jchip:hover{border-color:var(--line-strong);color:var(--ink)}
+.jchip:focus-visible,.buy:focus-visible,.foot a:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.prem-note{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:14px}
+.prem-note .ico{color:var(--blue-ink);flex:none}
+.dc-group{margin-bottom:20px;scroll-margin-top:120px}
+.dc-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.dc-card{display:flex;align-items:center;gap:11px;border:1px solid var(--blue-line);border-radius:12px;padding:9px 14px;box-shadow:var(--shadow);background:linear-gradient(180deg,var(--blue-soft),var(--surface))}
+.dc-card .flag{font-size:22px;line-height:1;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:4px 7px}
+.dc-city{font-weight:700;font-size:14px}
+.dc-country{font-size:11.5px;color:var(--ink-soft)}
+.rp-badge{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--blue-ink);background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:999px;padding:5px 12px}
+.dc-count{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+.gen-group{margin:0 0 14px}
+.gen-card{display:inline-flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 13px;margin-bottom:10px;max-width:100%;box-shadow:var(--shadow)}
+.epyc{display:grid;place-items:center;font-family:var(--mono);font-weight:800;font-size:8px;line-height:1.1;letter-spacing:.08em;color:var(--ink);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:6px;padding:5px 6px;text-align:center}
+.gen-code{font-family:var(--mono);font-weight:800;font-size:13px}
+.gen-series{font-size:11px;color:var(--ink-soft)}
+.gen-count{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-left:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr));gap:12px}
+.grid-in{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+.pcard{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 14px 13px 17px;box-shadow:var(--shadow);overflow:hidden;
+  transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur)}
+.pcard:hover{transform:translateY(-2px)}
+.pcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line-strong)}
+.pcard.s-out::before{background:oklch(72% 0.13 27)}
+.pcard.s-checking::before{background:var(--ink-faint)}
+.pcard.s-in::before{background:var(--ok)}
+.pcard.s-in{border-color:var(--ok);box-shadow:0 0 0 2px var(--ok-soft),0 14px 34px oklch(60% 0.18 150 / .2);background:linear-gradient(180deg,var(--ok-soft),var(--surface))}
+.pstatus{margin:-1px 0 11px}
+.oos,.unk,.instockpill{display:block;text-align:center;font-family:var(--mono);font-weight:800;font-size:14px;
+  line-height:1.1;letter-spacing:.045em;text-transform:uppercase;border-radius:9px;padding:9px 8px;white-space:nowrap}
+.oos{color:var(--no-ink);background:var(--no-soft);border:1px solid oklch(89% 0.05 27)}
+.unk{color:var(--ink-soft);background:var(--surface-2);border:1px dashed var(--line-strong)}
+.instockpill{color:#fff;background:linear-gradient(180deg,oklch(64% 0.2 150),var(--ok));border:1px solid var(--ok-ink);box-shadow:0 5px 16px oklch(60% 0.18 150 / .32)}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap}
+.pname{font-family:var(--mono);font-weight:700;font-size:11.5px;color:var(--orange-ink);letter-spacing:-.005em;overflow-wrap:anywhere}
+.popular{font-family:var(--mono);font-size:9px;font-weight:700;color:var(--blue-ink);background:var(--blue-soft);border:1px solid var(--blue-line);border-radius:999px;padding:2px 7px;white-space:nowrap}
+.ctxline{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);margin-top:4px}
+.price{margin-top:6px;font-family:var(--mono);display:flex;align-items:baseline;gap:3px;flex-wrap:wrap}
+.price .cur{font-size:11px;color:var(--ink-soft)}
+.price .num{font-size:15px;font-weight:700;color:var(--blue-ink);letter-spacing:-.01em}
+.price .unit{font-size:10px;color:var(--ink-soft);font-weight:700}
+.price .per{font-size:10px;color:var(--ink-faint);margin-left:2px}
+.specs{display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+.pfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap}
+.since{font-family:var(--mono);font-size:10.5px;color:var(--ok-ink);font-weight:600}
+.since.out{color:var(--ink-faint);font-weight:400}
+.buy{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-weight:800;font-size:11.5px;background:var(--ok);color:#fff;border:none;border-radius:8px;padding:8px 12px;text-decoration:none}
+.buy:hover{filter:brightness(1.06)}
+.section{margin-bottom:16px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:0 2px 12px}
+.sec-title{font-family:var(--mono);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
+.sec-badge{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--surface);color:var(--ink-soft);white-space:nowrap}
+.foot{border-top:1px solid var(--line);margin-top:26px;padding-top:16px;color:var(--ink-soft);font-size:12.5px}
+.foot p{margin:.35rem 0;max-width:74ch}
+.foot .tiny{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+
+/* ===== round 2 — subscribe UI ===== */
+#alertsCta{margin-left:auto;font-family:var(--mono);font-size:12px;font-weight:800;color:var(--blue-ink);background:var(--blue-soft);
+  border:1.5px solid var(--blue-line);border-radius:999px;padding:6px 13px;cursor:pointer;transition:border-color var(--dur-fast)}
+#alertsCta:hover{border-color:var(--blue)}
+.notify{font-family:var(--mono);font-size:10.5px;font-weight:800;color:var(--accent-ink);background:var(--surface-2);
+  border:1.5px dashed var(--line-strong);border-radius:8px;padding:6px 9px;cursor:pointer;transition:border-color var(--dur-fast)}
+.notify:hover{border-color:var(--accent)}
+#subOverlay{position:fixed;inset:0;background:oklch(25% 0.02 258 / .38);z-index:70}
+#subPanel{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);z-index:71;background:var(--surface);
+  border-left:1px solid var(--line);box-shadow:-12px 0 40px oklch(30% 0.02 258 / .18);display:flex;flex-direction:column}
+@media (max-width:719px){#subPanel{width:100%;border-left:none}}
+.sub-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 18px 12px;border-bottom:1px solid var(--line)}
+.sub-title{margin:0;font-family:var(--mono);font-weight:800;font-size:14px;letter-spacing:.01em;text-transform:uppercase}
+.sub-honesty{margin:3px 0 0;font-family:var(--mono);font-size:10.5px;color:var(--ink-soft)}
+.sub-close{flex:none;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;font-size:14px;color:var(--ink-soft);line-height:1}
+.sub-close:hover{border-color:var(--line-strong);color:var(--ink)}
+.sub-tabs{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid var(--line)}
+.sub-tab{font-family:var(--mono);font-size:11.5px;font-weight:800;border-radius:999px;padding:6px 15px;cursor:pointer;
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft)}
+.sub-tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.sub-body{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:14px 18px 18px}
+.sub-tray{border-top:1px solid var(--line);background:var(--surface-2);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tray-count{font-family:var(--mono);font-size:12.5px;font-weight:800;color:var(--ok-ink)}
+.tray-count.zero{color:var(--ink-faint);font-weight:600}
+.tray-hint{font-family:var(--mono);font-size:10.5px;color:var(--no-ink)}
+.step-label{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin:2px 0 10px}
+.picker-hint{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin:0 0 10px}
+.pick-dc{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);margin-bottom:10px}
+.pick-dc summary{display:flex;align-items:center;gap:9px;padding:10px 12px;cursor:pointer;list-style:none;font-family:var(--mono);font-size:12px;font-weight:700}
+.pick-dc summary::-webkit-details-marker{display:none}
+.pick-dc summary .tw{color:var(--ink-faint);transition:transform var(--dur-fast)}
+.pick-dc[open] summary .tw{transform:rotate(90deg)}
+.pick-dc summary .cnt{color:var(--ink-faint);font-weight:400;font-size:11px}
+.pick-all-w{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--accent-ink);font-weight:700}
+.pick-rows{border-top:1px solid var(--line)}
+.pick-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;min-height:44px;border-bottom:1px solid var(--line);cursor:pointer}
+.pick-row:last-child{border-bottom:none}
+.pick-row:hover{background:var(--surface-2)}
+.pick-row input,.pick-all-w input{width:17px;height:17px;margin:1px 0 0;accent-color:var(--accent);flex:none;cursor:pointer}
+.pick-name{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--orange-ink);overflow-wrap:anywhere;min-width:0}
+.pick-meta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.sdot{width:7px;height:7px;border-radius:50%;flex:none;display:inline-block}
+.sdot.in{background:var(--ok)}.sdot.out{background:var(--no)}.sdot.checking{background:var(--ink-faint)}
+.btn{font-family:var(--mono);font-weight:800;font-size:12px;border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--ok);color:#fff}
+.btn-primary:hover:not(:disabled){filter:brightness(1.06)}
+.btn-blue{background:var(--blue-soft);color:var(--blue-ink);border-color:var(--blue-line)}
+.btn-blue:hover:not(:disabled){border-color:var(--blue)}
+.btn-ghost{background:var(--surface);color:var(--ink-soft);border-color:var(--line-strong)}
+.btn-danger{background:var(--no-soft);color:var(--no-ink);border-color:oklch(85% 0.06 27)}
+.steps{margin:0 0 14px;padding:0 0 0 1.35em;font-size:12.5px;color:var(--ink)}
+.steps li{margin:0 0 9px}
+.steps .gate{font-weight:700}
+.copychip{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:2px 4px 2px 9px;margin:2px 0}
+.copychip button{font-family:var(--mono);font-size:10px;font-weight:800;border:1px solid var(--line-strong);background:var(--surface);color:var(--accent-ink);border-radius:5px;padding:3px 8px;cursor:pointer}
+.field{margin:0 0 12px}
+.field label{display:block;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-soft);margin-bottom:4px}
+.field input{width:100%;font-family:var(--mono);font-size:12.5px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px}
+.field.err input{border-color:var(--no)}
+.field-err{display:none;font-family:var(--mono);font-size:10.5px;color:var(--no-ink);margin-top:4px}
+.field.err .field-err{display:block}
+.chatrow{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.chatrow .field{flex:1 1 150px;min-width:0;margin-bottom:0}
+.chatrow .btn{flex:none;margin-bottom:0}
+.chatrow+.field-err{margin:4px 0 12px}
+details.whatchat{margin:8px 0 12px}
+details.whatchat summary{font-family:var(--mono);font-size:10.5px;color:var(--accent-ink);cursor:pointer}
+details.whatchat p{font-size:11.5px;color:var(--ink-soft);margin:6px 0 0}
+.status-line{font-family:var(--mono);font-size:11.5px;min-height:1.2em;margin:10px 0 0}
+.status-line.busy{color:var(--warn-ink)}
+.status-line.bad{color:var(--no-ink)}
+.status-line.good{color:var(--ok-ink)}
+.banner-err{background:var(--no-soft);border:1px solid oklch(85% 0.06 27);color:var(--no-ink);
+  font-family:var(--mono);font-size:11.5px;border-radius:8px;padding:9px 12px;margin:0 0 12px}
+.success-card{background:var(--ok-soft);border:1px solid oklch(82% 0.1 150);border-radius:var(--radius-sm);padding:16px}
+.success-card h3{margin:0 0 6px;font-family:var(--mono);font-size:14px;color:var(--ok-ink);text-transform:uppercase;letter-spacing:.03em}
+.success-card p{margin:0 0 10px;font-size:12.5px;color:var(--ink)}
+.success-list{margin:0 0 4px;padding:0;list-style:none;font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+.success-list li{margin:2px 0}
+.privacy{border-top:1px solid var(--line);margin-top:16px;padding-top:12px;font-size:11.5px;color:var(--ink-soft)}
+.privacy .tiny{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:6px}
+.mg-note{font-size:12.5px;color:var(--ink-soft);margin:0 0 12px}
+.mg-notfound{background:var(--surface-2);border:1px dashed var(--line-strong);border-radius:8px;color:var(--ink-soft);
+  font-family:var(--mono);font-size:11.5px;padding:10px 12px;margin:0 0 12px}
+.mg-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.confirm-strip{background:var(--no-soft);border:1px solid oklch(85% 0.06 27);border-radius:8px;padding:10px 12px;margin-top:10px;
+  font-family:var(--mono);font-size:11.5px;color:var(--no-ink);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* ===== telegram spec preview ===== */
+.tg-section{margin-top:30px;border:1.5px dashed var(--line-strong);border-radius:var(--radius);padding:16px;background:var(--surface)}
+.tg-section h2{margin:0 0 4px;font-family:var(--mono);font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.tg-section .note{font-size:11.5px;color:var(--ink-soft);margin:0 0 14px}
+.tg-cols{display:flex;gap:14px;flex-wrap:wrap}
+.tgframe{flex:1 1 320px;min-width:0;background:#dfe6ee;border:1px solid var(--line);border-radius:12px;padding:14px}
+.tgframe .cap{font-family:var(--mono);font-size:10.5px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px}
+.tgbubble{background:#fff;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;box-shadow:0 1px 2px rgba(20,30,40,.15);overflow-wrap:anywhere}
+.tgbubble a{color:#0b62d6;text-decoration:none;font-weight:600}
+.tgbubble .tgfoot{color:#7a8794;font-size:11px;margin-top:8px}
+.tgbubble .tgtime{float:right;color:#9aa6b2;font-size:10px;margin:10px 0 0 8px}
+/* ===== demo controls (not part of shipped page) ===== */
+.demobar{position:fixed;left:12px;bottom:12px;z-index:60;display:flex;flex-direction:column;gap:6px;
+  font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);background:var(--surface);border:1.5px dashed var(--line-strong);
+  border-radius:10px;padding:9px 11px;box-shadow:var(--shadow);max-width:230px}
+.demobar b{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.demobar select{font-family:var(--mono);font-size:10.5px;max-width:100%}
+.demobar label{display:flex;align-items:center;gap:5px}
+@media (max-width:719px){.demobar{max-width:170px}}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .pcard{transition:none!important}
+  .pcard:hover{transform:none}
+  .pick-dc summary .tw{transition:none}
+}
+</style>
+</head>
+<body>
+  <div class="shell" id="pageShell">
+
+    <div class="sticky-zone">
+      <header class="app">
+        <div class="brandblock">
+          <h1 class="t">VPS&nbsp;·&nbsp;Stock&nbsp;Watch</h1>
+          <p class="s">Live availability across watched VPS providers · read-only board</p>
+        </div>
+        <span class="lamp fresh-pill" aria-hidden="true"><span class="dot"></span><span>updated 43s ago</span></span>
+      </header>
+    </div>
+
+    <main>
+      <div class="stats" aria-label="Stock summary">
+        <span class="stat-hero in1"><b id="stIn">—</b> in stock</span>
+        <span class="stat-sub"><b id="stWait">—</b> waiting</span>
+        <span class="stat-sub dim"><b id="stTotal">—</b> watched</span>
+        <span class="dim" id="breakdown"></span>
+        <button type="button" id="alertsCta">🔔 Get restock alerts</button>
+      </div>
+
+      <nav class="jump" aria-label="Jump to datacenter" id="jumpNav"></nav>
+
+      <div class="prem-note"><span class="ico" aria-hidden="true">ⓘ</span><span>
+        An independent watcher reads each provider's store <b>about every 5 minutes</b> from a real browser session and publishes a snapshot here.
+        The pill above tells you exactly how old the data is. Buy links go straight to the provider's cart.</span></div>
+
+      <section class="section instock" aria-labelledby="inTitle">
+        <div class="sec-head"><span class="sec-title" id="inTitle" style="color:var(--ok-ink)">✅ In stock now</span>
+          <span class="sec-badge" id="inBadge">—</span></div>
+        <div class="grid grid-in" id="instockGrid"></div>
+      </section>
+
+      <section class="section waiting" aria-labelledby="waitTitle">
+        <div class="sec-head"><span class="sec-title" id="waitTitle" style="color:var(--ink-soft)">⏳ Waiting for restock</span>
+          <span class="sec-badge" id="waitBadge">—</span></div>
+        <div id="waitingGroups"></div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p><b>How this works.</b> A watcher polls the providers' order pages about every 5 minutes and pushes a snapshot to this page.
+        Status can lag by a few minutes — the “updated” pill is the honest age of what you see.</p>
+      <p>Restock alerts are sent by <b>your own</b> Telegram bot — this site can't message anyone a bot didn't already talk to.</p>
+      <p>Prices are the providers' list prices. “Buy now” opens the provider's cart in a new tab; availability at checkout is up to the provider.</p>
+      <p class="tiny">Not affiliated with any listed provider · open source: <a href="https://github.com/cdcupt/dmit-watch">github.com/cdcupt/dmit-watch</a></p>
+    </footer>
+
+    <!-- ===== SPEC PREVIEW: the two Telegram cards (mockup-only section) ===== -->
+    <section class="tg-section" aria-label="Telegram card previews">
+      <h2>Spec preview — the two Telegram cards</h2>
+      <p class="note">Mockup-only section (never on the shipped page). HTML parse_mode · link previews disabled · anchor text, never raw URLs · “as of” = edge time.</p>
+      <div class="tg-cols">
+        <div class="tgframe">
+          <p class="cap">Confirmation — sent on subscribe</p>
+          <div class="tgbubble">
+            <strong>✅ Subscribed — VPS Stock Watch</strong><br><br>
+            You'll get ONE digest card here when any of your <b>3 plans</b> restock:<br><br>
+            • HKG.AS3.Pro.MICRO — Hong Kong<br>
+            • HKG.AS3.Pro.MEDIUM — Hong Kong<br>
+            • TYO.AS3.Pro.MICRO — Tokyo
+            <div class="tgfoot">checks run ~every 5 min · a plan re-alerts only after it goes out of stock again<br>manage: vps-stock.daichenlab.com/?manage=1</div>
+            <span class="tgtime">14:27</span>
+          </div>
+        </div>
+        <div class="tgframe">
+          <p class="cap">Digest — ONE card per restock event</p>
+          <div class="tgbubble">
+            <strong>🟢 Restock — 3 of your plans are IN STOCK</strong><br><br>
+            • <strong>HKG.AS3.Pro.TINY</strong> — $39.90/mo — Hong Kong · <a href="#" onclick="return false">Buy now</a><br>
+            • <strong>HKG.AS3.Pro.MICRO</strong> — $179.90/mo — Hong Kong · <a href="#" onclick="return false">Buy now</a><br>
+            • <strong>TYO.AS3.Pro.MICRO</strong> — $189.90/mo — Tokyo · <a href="#" onclick="return false">Buy now</a>
+            <div class="tgfoot">as of 14:32 UTC · data can lag ~5 min<br>manage: vps-stock.daichenlab.com/?manage=1</div>
+            <span class="tgtime">14:32</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== SUBSCRIBE / MANAGE PANEL ===== -->
+  <div id="subOverlay" hidden></div>
+  <div id="subPanel" role="dialog" aria-modal="true" aria-labelledby="subTitle" hidden>
+    <div class="sub-head">
+      <div>
+        <h2 class="sub-title" id="subTitle">Restock alerts → your Telegram</h2>
+        <p class="sub-honesty">Checks run about every 5 minutes — an alert can lag a restock by up to ~5 min.</p>
+      </div>
+      <button type="button" class="sub-close" id="subClose" aria-label="Close">✕</button>
+    </div>
+    <div class="sub-tabs" role="tablist" aria-label="Alerts">
+      <button type="button" class="sub-tab" role="tab" id="tabSubscribe" aria-selected="true" aria-controls="paneSubscribe">Subscribe</button>
+      <button type="button" class="sub-tab" role="tab" id="tabManage" aria-selected="false" aria-controls="paneManage" tabindex="-1">Manage</button>
+    </div>
+
+    <div class="sub-body" id="subBody">
+      <!-- ============ SUBSCRIBE TAB ============ -->
+      <div id="paneSubscribe" role="tabpanel" aria-labelledby="tabSubscribe">
+        <!-- step 1 -->
+        <div id="step1">
+          <p class="step-label">Step 1 of 2 · Pick your plans</p>
+          <p class="picker-hint">Plans in stock now alert on their next restock — after they've gone out and come back.</p>
+          <div id="planPicker"></div>
+        </div>
+        <!-- step 2 -->
+        <div id="step2" hidden>
+          <p class="step-label">Step 2 of 2 · Connect your Telegram bot</p>
+          <ol class="steps">
+            <li>Open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> in Telegram, send
+              <span class="copychip"><span>/newbot</span><button type="button" data-copy="/newbot">Copy</button></span>
+              and follow the two prompts. BotFather replies with a <b>token</b> — copy it.</li>
+            <li class="gate">Open your new bot's chat and press START. Telegram only lets a bot message people who started it.</li>
+            <li>Paste the token below, then find your chat id.</li>
+          </ol>
+          <div class="field" id="fTok">
+            <label for="fldToken">bot token</label>
+            <input id="fldToken" type="text" autocomplete="off" spellcheck="false" placeholder="8123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" aria-describedby="fTokErr">
+            <p class="field-err" id="fTokErr">That doesn't look like a bot token — it should look like 8123456789:AA… (46+ characters). Re-copy it from @BotFather.</p>
+          </div>
+          <div class="chatrow">
+            <div class="field" id="fChat">
+              <label for="fldChat">chat id</label>
+              <input id="fldChat" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="521934882" aria-describedby="fChatErr">
+            </div>
+            <button type="button" class="btn btn-blue" id="findChat" disabled>Find my chat id</button>
+          </div>
+          <p class="field-err" id="fChatErr">A chat id is just a number, like 521934882.</p>
+          <details class="whatchat">
+            <summary>what's a chat id?</summary>
+            <p>Telegram addresses every conversation by a number. After you press Start on your bot, “Find my chat id” asks Telegram (with your token) who talked to it — that number is you. Nothing else can be read with it.</p>
+          </details>
+          <div class="banner-err" id="subBanner" hidden></div>
+          <p class="status-line" id="subStatus" role="status" aria-live="polite"></p>
+          <div class="privacy">
+            We store exactly three things: your bot token, your chat id, your plan list. No account, no email, no cookies.
+            Your bot can only message people who pressed Start on it — that's you. Unsubscribe here anytime, or send
+            <b>/revoke</b> to @BotFather — that kills the token instantly.
+            <p class="tiny">source: <a href="https://github.com/cdcupt/dmit-watch" target="_blank" rel="noopener">github.com/cdcupt/dmit-watch</a></p>
+          </div>
+        </div>
+        <!-- success -->
+        <div id="subSuccess" hidden>
+          <div class="success-card">
+            <h3 id="okTitle">Check your Telegram</h3>
+            <p id="okBody">Your confirmation card just arrived — the same pipe delivers your restock digest.</p>
+            <ul class="success-list" id="okList"></ul>
+          </div>
+          <div class="tgframe" style="margin-top:14px">
+            <p class="cap">what just landed in your chat</p>
+            <div class="tgbubble" id="okBubble"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ MANAGE TAB ============ -->
+      <div id="paneManage" role="tabpanel" aria-labelledby="tabManage" hidden>
+        <div id="mgAuth">
+          <p class="mg-note">Enter the same bot token + chat id you subscribed with — we'll load your plan list. There's nothing else to remember.</p>
+          <div class="field" id="mTok">
+            <label for="mgToken">bot token</label>
+            <input id="mgToken" type="text" autocomplete="off" spellcheck="false" placeholder="8123456789:AAxx…" aria-describedby="mTokErr">
+            <p class="field-err" id="mTokErr">That doesn't look like a bot token — re-copy it from @BotFather.</p>
+          </div>
+          <div class="field" id="mChat">
+            <label for="mgChat">chat id</label>
+            <input id="mgChat" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="521934882" aria-describedby="mChatErr">
+            <p class="field-err" id="mChatErr">A chat id is just a number, like 521934882.</p>
+          </div>
+          <div class="mg-notfound" id="mgNotFound" hidden>No subscription found for that token + chat id.</div>
+        </div>
+        <div id="mgLoaded" hidden>
+          <p class="mg-note" id="mgSummary"></p>
+          <div id="mgPicker"></div>
+          <div class="confirm-strip" id="mgConfirm" hidden>
+            <span>Remove this subscription and forget the token?</span>
+            <button type="button" class="btn btn-danger" id="mgConfirmYes">Yes, unsubscribe</button>
+            <button type="button" class="btn btn-ghost" id="mgConfirmNo">Keep it</button>
+          </div>
+        </div>
+        <div id="mgDone" hidden>
+          <div class="success-card"><h3 id="mgDoneTitle"></h3><p id="mgDoneBody"></p></div>
+        </div>
+        <div class="banner-err" id="mgBanner" hidden></div>
+        <p class="status-line" id="mgStatus" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <!-- pinned tray -->
+    <div class="sub-tray" id="subTray">
+      <span class="tray-count zero" id="trayCount">0 selected</span>
+      <span class="tray-hint" id="trayHint">pick at least one plan</span>
+      <span style="display:flex;gap:8px">
+        <button type="button" class="btn btn-ghost" id="backTo1" hidden>‹ Back</button>
+        <button type="button" class="btn btn-primary" id="trayAction" disabled>Continue ▸</button>
+      </span>
+    </div>
+  </div>
+
+  <!-- demo controls — mockup only -->
+  <div class="demobar" aria-label="Demo controls">
+    <b>demo · mockup only</b>
+    <label>submit outcome
+      <select id="demoOutcome">
+        <option value="success">success</option>
+        <option value="merged">merged (already subscribed)</option>
+        <option value="token">422 token rejected</option>
+        <option value="chat">422 chat not found</option>
+        <option value="rate">429 rate limited</option>
+        <option value="server">500 server error</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="demoNoStart"> user never pressed Start</label>
+    <label><input type="checkbox" id="demoFound" checked> manage: subscription exists</label>
+  </div>
+
+<script>
+'use strict';
+/* ================= sample data — same fixture family as the live board ================= */
+const now = Date.now(), MIN = 60000;
+const P = (id, name, price, over = {}) => ({ id, name, price, period: 'mo', popular: false, status: 'out',
+  deepLink: 'https://www.dmit.io/cart.php?a=add&pid=' + id, inSinceMs: null, ...over });
+const DATA = {
+  counts: { total: 22, in: 2, waiting: 20, byLoc: { lax: 9, hkg: 5, tyo: 4, hnl: 4 } },
+  datacenters: [
+    { loc:'lax', code:'LAX', city:'Los Angeles', country:'United States', flag:'🇺🇸', generations:[
+      { label:'AS3', cpu:'AMD EPYC 7003 Series', plans:[
+        P('101','LAX.AS3.Pro.TINY','$10.90',{popular:true,outSinceMs:now-(3*24*60+4*60)*MIN}),
+        P('102','LAX.AS3.Pro.POCKET','$16.90'), P('103','LAX.AS3.Pro.STARTER','$34.90'),
+        P('104','LAX.AS3.Pro.MINI','$62.90',{outSinceMs:now-47*MIN}),
+        P('105','LAX.AS3.Pro.MICRO','$87.90'), P('106','LAX.AS3.Pro.MEDIUM','$199.90') ]},
+      { label:'AN5', cpu:'AMD EPYC 9005 Series', plans:[
+        P('111','LAX.AN5.Pro.MINI','$79.90'), P('112','LAX.AN5.Pro.MICRO','$110.90',{status:'checking'}),
+        P('113','LAX.AN5.Pro.MEDIUM','$289.90') ]} ]},
+    { loc:'hkg', code:'HKG', city:'Hong Kong', country:'China', flag:'🇭🇰', generations:[
+      { label:'AS3', cpu:'AMD EPYC 7003 Series', plans:[
+        P('201','HKG.AS3.Pro.TINY','$39.90',{popular:true,status:'in',inSinceMs:now-26*MIN}),
+        P('202','HKG.AS3.Pro.STARTER','$79.90'), P('203','HKG.AS3.Pro.MINI','$126.90'),
+        P('204','HKG.AS3.Pro.MICRO','$179.90',{outSinceMs:now-(2*60+14)*MIN}),
+        P('205','HKG.AS3.Pro.MEDIUM','$239.90') ]} ]},
+    { loc:'tyo', code:'TYO', city:'Tokyo', country:'Japan', flag:'🇯🇵', generations:[
+      { label:'AS3', cpu:'AMD EPYC 7003 Series', plans:[
+        P('301','TYO.AS3.Pro.TINY','$21.90',{popular:true}),
+        P('302','TYO.AS3.Pro.STARTER','$45.90',{status:'in',inSinceMs:now-(2*60+14)*MIN}),
+        P('303','TYO.AS3.Pro.MINI','$89.90',{status:'checking'}), P('304','TYO.AS3.Pro.MICRO','$189.90') ]} ]},
+    { loc:'hnl', code:'HNL', city:'Honolulu', country:'United States · Hawaii', flag:'🇺🇸', generations:[
+      { label:'VDS', cpu:'AMD Ryzen 7940HS · residential IP', provider:'whmcs', plans:[
+        P('401','Dedicate IP VDS Intern','$35.00',{deepLink:'https://qq.pw/cart.php?a=add&pid=401',specs:'Ryzen 7940HS · dedicated IP'}),
+        P('402','Dedicate IP VDS Reliable','$35.00',{deepLink:'https://qq.pw/cart.php?a=add&pid=402',specs:'Ryzen 7940HS · dedicated IP'}),
+        P('403','Dedicate IP VDS Hardcore','$45.00',{deepLink:'https://qq.pw/cart.php?a=add&pid=403',outSinceMs:now-9*24*60*MIN}),
+        P('404','Dedicate IP VDS Elite','$165.00',{deepLink:'https://qq.pw/cart.php?a=add&pid=404',period:'quarter'}) ]} ]},
+  ],
+};
+const EXISTING_SUB = ['201', '204', '301']; // demo: what the "server" has stored
+
+/* ================= tiny utils (shipped board idioms) ================= */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDur = (ms) => { const s = Math.max(0, Math.floor(ms/1000)); if (s < 60) return s+'s';
+  const m = Math.floor(s/60); if (m < 60) return m+'m'; const h = Math.floor(m/60);
+  if (h < 24) return h+'h '+(m%60)+'m'; const d = Math.floor(h/24); return d+'d '+(h%24)+'h'; };
+const pub = (s) => (s === 'in' || s === 'out' ? s : 'checking');
+const TOKEN_RE = /^\d{8,10}:[A-Za-z0-9_-]{35}$/;
+const CHAT_RE = /^-?\d+$/;
+const allPlans = []; const planById = {};
+for (const dc of DATA.datacenters) for (const g of dc.generations) for (const p of g.plans) {
+  const rec = { ...p, dc: dc.city, loc: dc.loc, flag: dc.flag, cpu: g.cpu };
+  allPlans.push(rec); planById[p.id] = rec;
+}
+
+/* ================= board render (round-1 builders + round-2 bell) ================= */
+function cardHTML(plan, ctx) {
+  const st = pub(plan.status);
+  const pill = st === 'in' ? '<span class="instockpill">In Stock</span>'
+    : st === 'out' ? '<span class="oos">Out of Stock</span>' : '<span class="unk">Checking…</span>';
+  const pop = plan.popular ? '<span class="popular">Popular</span>' : '';
+  const ctxLine = ctx ? `<div class="ctxline">${ctx}</div>` : '';
+  const num = String(plan.price ?? '').replace(/^\$/, '');
+  const specs = plan.specs ? `<div class="specs"><span aria-hidden="true">▤</span> ${esc(plan.specs)}</div>` : '';
+  let foot = '';
+  if (st === 'in') {
+    foot = `<div class="pfoot"><a class="buy" href="${esc(plan.deepLink)}" target="_blank" rel="noopener">Buy now ▸</a>` +
+      (plan.inSinceMs != null ? `<span class="since">in stock · ${fmtDur(now - plan.inSinceMs)}</span>` : '') + '</div>';
+  } else { // round 2: bell on every OUT/checking card; since-line stays if present
+    const since = (st === 'out' && plan.outSinceMs != null)
+      ? `<span class="since out">out of stock · ${fmtDur(now - plan.outSinceMs)}</span>` : '';
+    foot = `<div class="pfoot"><button type="button" class="notify" data-plan-id="${esc(plan.id)}" aria-label="Notify me when ${esc(plan.name)} restocks">🔔 Notify me</button>${since}</div>`;
+  }
+  return `<article class="pcard s-${st}" data-id="${esc(plan.id)}">
+    <div class="pstatus">${pill}</div>
+    <div class="phead"><span class="pname">${esc(plan.name)}</span>${pop}</div>${ctxLine}
+    <div class="price"><span class="cur">$</span><span class="num">${esc(num)}</span><span class="unit">USD</span><span class="per">/${esc(plan.period ?? 'mo')}</span></div>
+    ${specs}${foot}</article>`;
+}
+function renderBoard() {
+  const c = DATA.counts;
+  $('#stIn').textContent = c.in; $('#stWait').textContent = c.waiting; $('#stTotal').textContent = c.total;
+  $('#breakdown').textContent = Object.entries(c.byLoc).map(([k, v]) => k.toUpperCase() + ' ' + v).join(' · ');
+  $('#inBadge').textContent = `${c.in} plans · buy while they last`;
+  $('#waitBadge').textContent = `${c.waiting} plans · grouped by datacenter`;
+  $('#jumpNav').innerHTML = DATA.datacenters.map(dc =>
+    `<a class="jchip" href="#dc-${esc(dc.loc)}">${esc(dc.flag)} ${esc(dc.code)}</a>`).join('');
+  $('#instockGrid').innerHTML = allPlans.filter(p => pub(p.status) === 'in')
+    .map(p => cardHTML(p, `${esc(p.flag)} ${esc(p.dc)} · ${esc(p.cpu)}`)).join('');
+  $('#waitingGroups').innerHTML = DATA.datacenters.map(dc => {
+    const plans = dc.generations.flatMap(g => g.plans);
+    const inN = plans.filter(p => pub(p.status) === 'in').length;
+    const gens = dc.generations.map(g => {
+      const waiting = g.plans.filter(p => pub(p.status) !== 'in');
+      if (!waiting.length) return '';
+      const chip = /EPYC/i.test(g.cpu) ? 'AMD<br>EPYC' : esc(g.label);
+      return `<div class="gen-group"><div class="gen-card"><span class="epyc" aria-hidden="true">${chip}</span>
+        <div><div class="gen-code">${esc(g.label)}</div><div class="gen-series">${esc(g.cpu)}</div></div>
+        <span class="gen-count">${waiting.length} plans</span></div>
+        <div class="grid">${waiting.map(p => cardHTML(p, null)).join('')}</div></div>`;
+    }).join('');
+    const badge = (dc.generations).some(g => g.provider === 'whmcs') ? 'qq.pw · WHMCS' : 'DMIT · Premium';
+    return `<section class="dc-group" id="dc-${esc(dc.loc)}" aria-label="${esc(dc.city)}">
+      <div class="dc-bar"><div class="dc-card"><span class="flag" aria-hidden="true">${esc(dc.flag)}</span>
+      <div><div class="dc-city">${esc(dc.city)}</div><div class="dc-country">${esc(dc.country)}</div></div></div>
+      <span class="rp-badge">${badge}</span><span class="dc-count">${plans.length} watched${inN ? ` · ${inN} in stock ↑` : ''}</span></div>${gens}</section>`;
+  }).join('');
+}
+
+/* ================= picker (shared by Subscribe step 1 and Manage) ================= */
+function pickerHTML(prefix, checked, openLoc) {
+  const mobile = matchMedia('(max-width:719px)').matches;
+  return DATA.datacenters.map(dc => {
+    const plans = dc.generations.flatMap(g => g.plans);
+    const open = openLoc ? dc.loc === openLoc : !mobile;
+    const rows = plans.map(p => {
+      const st = pub(p.status);
+      return `<label class="pick-row"><input type="checkbox" class="pick" data-plan-id="${esc(p.id)}" data-loc="${esc(dc.loc)}"${checked.has(p.id) ? ' checked' : ''}>
+        <span class="pick-name">${esc(p.name)}</span>
+        <span class="pick-meta">${esc(p.price)} <span class="sdot ${st}" aria-hidden="true"></span>${st}</span></label>`;
+    }).join('');
+    return `<details class="pick-dc" data-loc="${esc(dc.loc)}"${open ? ' open' : ''}>
+      <summary><span class="tw" aria-hidden="true">▸</span>${esc(dc.flag)} <span>${esc(dc.city)}</span><span class="cnt">· ${plans.length}</span>
+        <span class="pick-all-w"><input type="checkbox" class="pick-all" data-loc="${esc(dc.loc)}" aria-label="Select all ${esc(dc.city)} plans">all</span></summary>
+      <div class="pick-rows">${rows}</div></details>`;
+  }).join('');
+}
+function wirePicker(root, onChange) {
+  root.querySelectorAll('.pick-all').forEach(a => a.addEventListener('click', e => e.stopPropagation()));
+  root.querySelectorAll('.pick-all-w').forEach(w => w.addEventListener('click', e => e.stopPropagation()));
+  root.addEventListener('change', (e) => {
+    if (e.target.classList.contains('pick-all')) {
+      root.querySelectorAll(`.pick[data-loc="${e.target.dataset.loc}"]`).forEach(cb => { cb.checked = e.target.checked; });
+    }
+    syncPickAll(root); onChange();
+  });
+  syncPickAll(root);
+}
+function syncPickAll(root) {
+  root.querySelectorAll('.pick-all').forEach(a => {
+    const cbs = [...root.querySelectorAll(`.pick[data-loc="${a.dataset.loc}"]`)];
+    const n = cbs.filter(c => c.checked).length;
+    a.checked = n === cbs.length && n > 0;
+    a.indeterminate = n > 0 && n < cbs.length;
+  });
+}
+const pickedIds = (root) => [...root.querySelectorAll('.pick:checked')].map(c => c.dataset.planId);
+
+/* ================= panel state ================= */
+const panel = $('#subPanel'), overlay = $('#subOverlay');
+let invoker = null, activeTab = 'subscribe', step = 1, busy = false, rateTimer = null;
+const focusables = () => [...panel.querySelectorAll('button,input,select,a[href],summary,[tabindex="0"]')]
+  .filter(el => !el.disabled && el.offsetParent !== null);
+
+function openPanel({ tab = 'subscribe', preselect = null } = {}) {
+  invoker = document.activeElement;
+  overlay.hidden = false; panel.hidden = false;
+  document.body.style.overflow = 'hidden';
+  $('#pageShell').setAttribute('inert', '');
+  if (preselect) {
+    const cb = $(`#planPicker .pick[data-plan-id="${preselect}"]`);
+    if (cb) {
+      cb.checked = true;
+      const dcEl = cb.closest('.pick-dc'); dcEl.open = true;
+      syncPickAll($('#planPicker')); updateTray();
+      requestAnimationFrame(() => dcEl.scrollIntoView({ block: 'nearest' }));
+    }
+  }
+  selectTab(tab);
+  (focusables()[0] ?? panel).focus();
+}
+function closePanel() {
+  if (busy) return; // ignore while a request is in flight
+  overlay.hidden = true; panel.hidden = true;
+  document.body.style.overflow = '';
+  $('#pageShell').removeAttribute('inert');
+  if (invoker && document.contains(invoker)) invoker.focus(); else document.body.focus?.();
+}
+function selectTab(tab) {
+  activeTab = tab;
+  const sub = tab === 'subscribe';
+  $('#tabSubscribe').setAttribute('aria-selected', sub);
+  $('#tabManage').setAttribute('aria-selected', !sub);
+  $('#tabSubscribe').tabIndex = sub ? 0 : -1;
+  $('#tabManage').tabIndex = sub ? -1 : 0;
+  $('#paneSubscribe').hidden = !sub;
+  $('#paneManage').hidden = sub;
+  updateTray();
+}
+
+/* ================= tray (one primary action per state) ================= */
+function updateTray() {
+  const count = $('#trayCount'), hint = $('#trayHint'), act = $('#trayAction'), back = $('#backTo1');
+  const set = (c, h, label, dis, showBack) => {
+    count.textContent = c; count.classList.toggle('zero', /^0 /.test(c));
+    hint.textContent = h; act.textContent = label; act.disabled = dis || busy; back.hidden = !showBack;
+  };
+  if (activeTab === 'subscribe') {
+    if (!$('#subSuccess').hidden) { set('', '', 'Done', false, false); return; }
+    const n = pickedIds($('#planPicker')).length;
+    if (step === 1) set(`${n} selected`, n ? '' : 'pick at least one plan', 'Continue ▸', n === 0, false);
+    else set(`${n} selected`, '', busy ? 'Sending…' : 'Subscribe — send my confirmation ▸', n === 0 || !credsValid(), true);
+  } else {
+    if (!$('#mgDone').hidden) { set('', '', 'Close', false, false); return; }
+    if ($('#mgLoaded').hidden) set('', '', 'Load my subscription', busy, false);
+    else {
+      const n = pickedIds($('#mgPicker')).length;
+      if (n === 0) set('0 selected', 'deselecting all = unsubscribe', 'Unsubscribe all', false, false);
+      else set(`${n} selected`, '', busy ? 'Updating…' : 'Update subscription ▸', false, false);
+    }
+  }
+}
+function credsValid() { return TOKEN_RE.test($('#fldToken').value.trim()) && CHAT_RE.test($('#fldChat').value.trim()); }
+
+/* ================= subscribe flow ================= */
+function showStep(n) {
+  step = n;
+  $('#step1').hidden = n !== 1; $('#step2').hidden = n !== 2;
+  $('#subSuccess').hidden = true; updateTray();
+  if (n === 2) $('#fldToken').focus();
+}
+function setStatus(el, msg, cls) { el.textContent = msg; el.className = 'status-line' + (cls ? ' ' + cls : ''); }
+function fieldErr(wrapId, on, msg) {
+  const w = $(wrapId); w.classList.toggle('err', on);
+  const input = w.querySelector('input'); input.setAttribute('aria-invalid', on ? 'true' : 'false');
+  if (msg) { const e = w.querySelector('.field-err') || $(wrapId + 'Err'); if (e) e.textContent = msg; }
+}
+$('#fldToken').addEventListener('blur', () => fieldErr('#fTok', $('#fldToken').value.trim() !== '' && !TOKEN_RE.test($('#fldToken').value.trim())));
+$('#fldToken').addEventListener('input', () => { fieldErr('#fTok', false); $('#findChat').disabled = !TOKEN_RE.test($('#fldToken').value.trim()); updateTray(); });
+$('#fldChat').addEventListener('blur', () => { const v = $('#fldChat').value.trim();
+  const bad = v !== '' && !CHAT_RE.test(v); $('#fChat').classList.toggle('err', bad); $('#fChatErr').style.display = bad ? 'block' : 'none'; });
+$('#fldChat').addEventListener('input', () => { $('#fChat').classList.remove('err'); $('#fChatErr').style.display = 'none'; updateTray(); });
+
+$('#findChat').addEventListener('click', () => {
+  const st = $('#subStatus'); busy = true; updateTray();
+  $('#findChat').disabled = true;
+  setStatus(st, 'Asking Telegram who started your bot…', 'busy');
+  setTimeout(() => {
+    busy = false; $('#findChat').disabled = false;
+    if ($('#demoNoStart').checked) {
+      setStatus(st, 'No chat found — open your new bot, press Start, then tap Find again. (A busy bot with a webhook can\'t be auto-read — paste the id manually.)', 'bad');
+    } else {
+      $('#fldChat').value = '521934882';
+      setStatus(st, 'Found it — that\'s your chat id.', 'good');
+    }
+    updateTray();
+  }, 700);
+});
+
+function doSubscribe() {
+  const st = $('#subStatus'), banner = $('#subBanner');
+  banner.hidden = true; busy = true; updateTray();
+  setStatus(st, 'Sending confirmation to your bot…', 'busy');
+  const ids = pickedIds($('#planPicker'));
+  setTimeout(() => {
+    busy = false;
+    const outcome = $('#demoOutcome').value;
+    if (outcome === 'token') {
+      setStatus(st, '', ''); fieldErr('#fTok', true, 'Telegram rejected this token — re-copy it from @BotFather, or send /token there to reissue it.');
+      $('#fldToken').focus();
+    } else if (outcome === 'chat') {
+      setStatus(st, '', ''); $('#fChat').classList.add('err');
+      $('#fChatErr').textContent = 'Your bot can\'t message you yet — open it in Telegram, press Start, then retry.';
+      $('#fChatErr').style.display = 'block'; $('#fldChat').focus();
+    } else if (outcome === 'rate') {
+      setStatus(st, '', ''); banner.hidden = false; let s = 40;
+      banner.textContent = `Too many attempts — try again in ${s}s.`;
+      clearInterval(rateTimer);
+      rateTimer = setInterval(() => { s -= 1;
+        if (s <= 0) { clearInterval(rateTimer); banner.hidden = true; updateTray(); }
+        else banner.textContent = `Too many attempts — try again in ${s}s.`; }, 1000);
+    } else if (outcome === 'server') {
+      setStatus(st, '', ''); banner.hidden = false;
+      banner.textContent = 'Something broke on our side — nothing was saved. Try again in a minute.';
+    } else {
+      showSuccess(ids, outcome === 'merged');
+    }
+    updateTray();
+  }, 900);
+}
+function showSuccess(ids, merged) {
+  $('#step2').hidden = true; $('#subSuccess').hidden = false;
+  setStatus($('#subStatus'), '', '');
+  $('#okTitle').textContent = merged ? 'Subscription updated' : 'Check your Telegram';
+  $('#okBody').textContent = merged
+    ? `Subscription updated — you now watch ${ids.length} plans. A fresh summary card is in your chat.`
+    : 'Your confirmation card just arrived — the same pipe delivers your restock digest.';
+  $('#okList').innerHTML = ids.map(id => `<li>• ${esc(planById[id].name)} — ${esc(planById[id].dc)}</li>`).join('');
+  $('#okBubble').innerHTML = `<strong>${merged ? '🔄 Subscription updated' : '✅ Subscribed'} — VPS Stock Watch</strong><br><br>
+    ${ids.length === 1 ? 'You\'ll get ONE digest card here when your plan restocks:' : `You'll get ONE digest card here when any of your <b>${ids.length} plans</b> restock:`}<br><br>` +
+    ids.map(id => `• ${esc(planById[id].name)} — ${esc(planById[id].dc)}`).join('<br>') +
+    `<div class="tgfoot">checks run ~every 5 min · a plan re-alerts only after it goes out of stock again<br>manage: vps-stock.daichenlab.com/?manage=1</div>`;
+  // credentials are cleared after success — a token is never kept around
+  $('#fldToken').value = ''; $('#fldChat').value = ''; $('#findChat').disabled = true;
+  const live = $('#subStatus'); live.textContent = merged ? 'Subscription updated.' : 'Subscribed — confirmation sent to your Telegram.';
+}
+
+/* ================= manage flow ================= */
+function mgValid() { return TOKEN_RE.test($('#mgToken').value.trim()) && CHAT_RE.test($('#mgChat').value.trim()); }
+['#mgToken', '#mgChat'].forEach(sel => $(sel).addEventListener('input', () => {
+  $('#mTok').classList.remove('err'); $('#mChat').classList.remove('err'); $('#mgNotFound').hidden = true; updateTray();
+}));
+$('#mgToken').addEventListener('blur', () => $('#mTok').classList.toggle('err', $('#mgToken').value.trim() !== '' && !TOKEN_RE.test($('#mgToken').value.trim())));
+$('#mgChat').addEventListener('blur', () => $('#mChat').classList.toggle('err', $('#mgChat').value.trim() !== '' && !CHAT_RE.test($('#mgChat').value.trim())));
+
+function doLookup() {
+  const st = $('#mgStatus');
+  if (!mgValid()) { $('#mgNotFound').hidden = false; return; } // uniform copy — same as a server 404
+  busy = true; updateTray(); setStatus(st, 'Looking up your subscription…', 'busy');
+  setTimeout(() => {
+    busy = false; setStatus(st, '', '');
+    if (!$('#demoFound').checked) { $('#mgNotFound').hidden = false; updateTray(); return; }
+    $('#mgAuth').hidden = true; $('#mgLoaded').hidden = false;
+    $('#mgSummary').innerHTML = `You watch <b>${EXISTING_SUB.length} plans</b>. Edit the list, or clear everything to unsubscribe.`;
+    $('#mgPicker').innerHTML = pickerHTML('mg', new Set(EXISTING_SUB), null);
+    wirePicker($('#mgPicker'), updateTray);
+    updateTray();
+  }, 700);
+}
+function doUpdate() {
+  const ids = pickedIds($('#mgPicker')), st = $('#mgStatus');
+  busy = true; updateTray();
+  setStatus(st, ids.length ? 'Updating your subscription…' : 'Removing your subscription…', 'busy');
+  setTimeout(() => {
+    busy = false; setStatus(st, '', '');
+    $('#mgLoaded').hidden = true; $('#mgDone').hidden = false;
+    if (ids.length) {
+      $('#mgDoneTitle').textContent = 'Updated';
+      $('#mgDoneBody').textContent = `You now watch ${ids.length} plan${ids.length === 1 ? '' : 's'}. A fresh summary card is in your Telegram.`;
+    } else {
+      $('#mgDoneTitle').textContent = 'Unsubscribed';
+      $('#mgDoneBody').textContent = 'Your token and plan list were deleted.';
+    }
+    $('#mgToken').value = ''; $('#mgChat').value = '';
+    updateTray();
+  }, 700);
+}
+
+/* ================= tray + tabs + lifecycle wiring ================= */
+$('#trayAction').addEventListener('click', () => {
+  if (activeTab === 'subscribe') {
+    if (!$('#subSuccess').hidden) { closePanel(); resetSubscribe(); return; }
+    if (step === 1) showStep(2); else doSubscribe();
+  } else {
+    if (!$('#mgDone').hidden) { closePanel(); resetManage(); return; }
+    if ($('#mgLoaded').hidden) doLookup();
+    else if (pickedIds($('#mgPicker')).length === 0) { $('#mgConfirm').hidden = false; $('#mgConfirmYes').focus(); }
+    else doUpdate();
+  }
+});
+$('#backTo1').addEventListener('click', () => showStep(1));
+$('#mgConfirmYes').addEventListener('click', () => { $('#mgConfirm').hidden = true; doUpdate(); });
+$('#mgConfirmNo').addEventListener('click', () => $('#mgConfirm').hidden = true);
+function resetSubscribe() { $('#subSuccess').hidden = true; showStep(1); $('#subBanner').hidden = true; }
+function resetManage() { $('#mgDone').hidden = true; $('#mgLoaded').hidden = false; $('#mgAuth').hidden = false; $('#mgLoaded').hidden = true; $('#mgNotFound').hidden = true; }
+
+$('#tabSubscribe').addEventListener('click', () => selectTab('subscribe'));
+$('#tabManage').addEventListener('click', () => selectTab('manage'));
+[$('#tabSubscribe'), $('#tabManage')].forEach((t, i, arr) => t.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const o = arr[1 - i]; o.focus(); o.click(); }
+}));
+$('#subClose').addEventListener('click', closePanel);
+overlay.addEventListener('click', closePanel);
+document.addEventListener('keydown', (e) => {
+  if (panel.hidden) return;
+  if (e.key === 'Escape') { closePanel(); return; }
+  if (e.key !== 'Tab') return;
+  const f = focusables(); if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+  else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+});
+// Enter inside step-2 fields submits (form semantics without a native form action)
+[$('#fldToken'), $('#fldChat')].forEach(el => el.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !$('#trayAction').disabled) { e.preventDefault(); $('#trayAction').click(); }
+}));
+[$('#mgToken'), $('#mgChat')].forEach(el => el.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); $('#trayAction').click(); }
+}));
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-copy]');
+  if (chip) { navigator.clipboard?.writeText(chip.dataset.copy);
+    const old = chip.textContent; chip.textContent = 'Copied ✓'; setTimeout(() => { chip.textContent = old; }, 1500); }
+});
+
+/* ================= entry points ================= */
+$('#alertsCta').addEventListener('click', () => openPanel({ tab: 'subscribe' }));
+document.addEventListener('click', (e) => {
+  const bell = e.target.closest('.notify');
+  if (bell) openPanel({ tab: 'subscribe', preselect: bell.dataset.planId });
+});
+
+/* ================= boot ================= */
+renderBoard();
+$('#planPicker').innerHTML = pickerHTML('sub', new Set(), null);
+wirePicker($('#planPicker'), updateTray);
+showStep(1);
+if (new URLSearchParams(location.search).get('manage') === '1') openPanel({ tab: 'manage' });
+</script>
+</body>
+</html>
