@@ -35,6 +35,10 @@ function hostOf(url) {
  * @param {{url:string, token:string}|null} opts.config loadPushConfig() output; null → no-op
  * @param {() => object} opts.getWatchlist LIVE watchlist getter (panel server's), never a boot copy
  * @param {object}   opts.store store facade for buildState()
+ * @param {number}   [opts.cadenceSec] resolved target cadence in seconds (index.js passes the
+ *   midpoint of the resolveCadenceSec band); when set, the envelope carries it so the board
+ *   can derive freshness thresholds honestly (subscriptions TECH §B6/D7). Omitted → the
+ *   round-1 envelope shape, byte-identical.
  * @param {() => number} [opts.now]
  * @param {Function} [opts.fetch]  injectable fetch (defaults to global)
  * @param {object}   [opts.logger]
@@ -46,6 +50,7 @@ export function createPublisher({
   config,
   getWatchlist,
   store,
+  cadenceSec,
   now = () => Date.now(),
   fetch = globalThis.fetch,
   logger = console,
@@ -85,6 +90,11 @@ export function createPublisher({
    * body behind). buildState's default-empty alarmed set → alarm:false on every
    * plan; the watcher key and per-plan lastCheckMs are operator internals and
    * are stripped before wrapping (DESIGN §8 privacy filter).
+   *
+   * Envelope: {v:1, pushedAt, cadenceSec, state}. v stays 1 — cadenceSec is an
+   * OPTIONAL-field addition (§B6/D7, rolling-deploy safe): present only when the
+   * option was passed as a positive finite number, otherwise the key is omitted
+   * entirely so the round-1 shape stays byte-identical.
    */
   function buildPayload() {
     const state = buildState({ watchlist: getWatchlist(), store, alarmed: new Set(), now: now() });
@@ -93,6 +103,9 @@ export function createPublisher({
       for (const gen of dc.generations ?? []) {
         for (const plan of gen.plans ?? []) delete plan.lastCheckMs; // poll timing is operator detail
       }
+    }
+    if (Number.isFinite(cadenceSec) && cadenceSec > 0) {
+      return { v: 1, pushedAt: now(), cadenceSec, state };
     }
     return { v: 1, pushedAt: now(), state };
   }

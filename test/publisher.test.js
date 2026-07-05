@@ -50,13 +50,14 @@ function captureFetch({ failTimes = 0, status = 502, hang = false, reject = fals
 }
 
 /** Publisher under test with an injectable clock + live-swappable watchlist. */
-function makePublisher({ store, fetch, logger = SILENT, debounceMs = 1, config = CONFIG } = {}) {
+function makePublisher({ store, fetch, logger = SILENT, debounceMs = 1, config = CONFIG, cadenceSec } = {}) {
   let clock = 1_700_000_000_000;
   let wl = loadWatchlist();
   const pub = createPublisher({
     config,
     getWatchlist: () => wl,
     store,
+    cadenceSec,
     fetch,
     logger,
     now: () => clock,
@@ -170,6 +171,35 @@ test('publisher: envelope + headers exact — {v:1, pushedAt: injected now, stat
   assert.equal(body.v, 1);
   assert.equal(body.pushedAt, clockNow());
   assert.equal(body.state.counts.total, 37);
+  store.close();
+});
+
+// PUB-U11 (subscriptions TECH §B6/D7 + Q1.8): the envelope gains cadenceSec as an
+// OPTIONAL field — present with the resolved target when the option is passed,
+// absent (old shape byte-identical) when it is not. v stays 1 either way.
+test('publisher: cadenceSec option → {v:1, pushedAt, cadenceSec: 300, state}; omitted → no cadenceSec key', async () => {
+  const store = seededStore();
+
+  // With cadenceSec: 300 — the field rides the envelope, v stays 1.
+  const withCad = captureFetch();
+  const a = makePublisher({ store, fetch: withCad.fetch, cadenceSec: 300 });
+  a.pub.onEvent('family', {});
+  await a.pub.whenIdle();
+  const body = withCad.calls[0].body;
+  assert.deepEqual(Object.keys(body), ['v', 'pushedAt', 'cadenceSec', 'state']);
+  assert.equal(body.v, 1, 'optional-field addition, never a version bump');
+  assert.equal(body.pushedAt, a.clockNow());
+  assert.equal(body.cadenceSec, 300);
+  assert.equal(body.state.counts.total, 37);
+
+  // Option omitted — the round-1 shape, byte-identical (no cadenceSec key at all).
+  const without = captureFetch();
+  const b = makePublisher({ store, fetch: without.fetch });
+  b.pub.onEvent('family', {});
+  await b.pub.whenIdle();
+  const old = without.calls[0].body;
+  assert.ok(!('cadenceSec' in old), 'omitting the option emits no cadenceSec key');
+  assert.deepEqual(Object.keys(old), ['v', 'pushedAt', 'state']);
   store.close();
 });
 
@@ -386,14 +416,17 @@ test('wireNotifier: creds present → the real notifier factory is used, no disa
 test('wirePublisher: configured → enabled + origin-only boot line; null → disabled line', () => {
   const store = seededStore();
   const on = recordingLogger();
+  const seen = [];
   const enabled = wirePublisher({
     config: CONFIG,
     getWatchlist: () => loadWatchlist(),
     store,
+    cadenceSec: 300, // index.js passes the resolved target — the band midpoint (§B6)
     logger: on,
-    create: (opts) => createPublisher({ ...opts, fetch: async () => ({ ok: true }) }),
+    create: (opts) => (seen.push(opts), createPublisher({ ...opts, fetch: async () => ({ ok: true }) })),
   });
   assert.equal(enabled.enabled, true);
+  assert.equal(seen[0].cadenceSec, 300, 'wirePublisher forwards cadenceSec to the factory');
   assert.deepEqual(on.lines, ['[index] push: enabled -> https://vps-stock.example.com']);
 
   const off = recordingLogger();

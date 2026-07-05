@@ -118,9 +118,21 @@ test('the real config/watchlist.json is valid (37 plans, 7 families — hkg/an5 
   assert.ok(wl.families.find((f) => f.key === 'hkg/an5'));
 });
 
+test('cadence knobs: 5-minute cadence + a backoff cap that restores a real ladder (§B6)', () => {
+  const wl = loadWatchlist();
+  // Round 2 (subscriptions TECH §B6): one check per plan every 5 minutes.
+  assert.equal(wl.settings.cadenceSec, 300);
+  // At base 300 with factor 2 the old 900 cap saturated after two doublings
+  // (300→600→900-capped). 3600 restores a real ladder: 600 → 1200 → 2400 → 3600.
+  assert.equal(wl.settings.backoffCapSec, 3600);
+});
+
 test('cooldown is short enough not to swallow a genuine brief restock', () => {
   // SHOULD-FIX: 600s suppressed alerts on real restocks within 10 min of a prior
   // sellout. 90s only dedupes a single flap. Re-notify defaults to hourly.
+  // Since the 300s cadence (§B6) the cooldown is INERT — consecutive observations
+  // of one family are ≥270s apart > 90s — but kept: harmless, and still meaningful
+  // if cadence is ever lowered via DMIT_WATCH_CADENCE_SEC.
   const wl = loadWatchlist();
   assert.equal(wl.settings.cooldownSec, 90);
   assert.equal(wl.settings.blindRenotifySec, 3600);
