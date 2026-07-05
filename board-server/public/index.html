@@ -5,14 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="light" />
 <title>VPS Stock Watch — live availability across watched providers</title>
-<meta name="description" content="Live availability across watched VPS providers — a read-only stock board, updated about every minute by an independent watcher." />
+<meta name="description" content="Live availability across watched VPS providers — a read-only stock board, checked about every 5 minutes by an independent watcher, with restock alerts sent by your own Telegram bot." />
 <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='13'&gt;👁️&lt;/text&gt;&lt;/svg&gt;" />
 <link rel="stylesheet" href="board.css" />
 </head>
 <body>
-  <div class="shell">
+  <div class="shell" id="pageShell">
 
-    <!-- sticky zone: header + stale banner pin together; the board dims beneath -->
+    <!-- sticky zone: header + stale banner pin together; the board dims beneath.
+         Round-1 contract preserved: the header carries exactly one lamp — the
+         alerts CTA lives in the stats strip below, never here. -->
     <div class="sticky-zone">
       <header class="app">
         <div class="brandblock">
@@ -40,19 +42,23 @@
           <span class="stat-sub"><b id="stWait">—</b> waiting</span>
           <span class="stat-sub dim"><b id="stTotal">—</b> watched</span>
           <span class="dim" id="breakdown"></span>
+          <button type="button" id="alertsCta">🔔 Get restock alerts</button>
         </div>
 
         <nav class="jump" aria-label="Jump to datacenter" id="jumpNav"></nav>
 
+        <!-- cadence-copy spans (#cadExplainer/#cadFooter) ship the 5-minute
+             literals as deploy-time defaults; the first /api/state response
+             corrects them either direction (TECH §fe-fresh, D7). -->
         <div class="prem-note"><span class="ico" aria-hidden="true">ⓘ</span><span>
-          An independent watcher reads each provider's store every ~60&nbsp;s from a real browser session and publishes a snapshot here.
+          An independent watcher reads each provider's store <b id="cadExplainer">about every 5 minutes</b> from a real browser session and publishes a snapshot here.
           The pill above tells you exactly how old the data is. Buy links go straight to the provider's cart.</span></div>
 
         <section class="section instock" aria-labelledby="inTitle">
           <div class="sec-head"><span class="sec-title" id="inTitle" style="color:var(--ok-ink)">✅ In stock now</span>
             <span class="sec-badge" id="inBadge">—</span></div>
           <div class="grid grid-in" id="instockGrid"></div>
-          <div class="empty" id="instockEmpty" style="display:none">Nothing in stock right now — the board refreshes about every minute.</div>
+          <div class="empty" id="instockEmpty" style="display:none">Nothing in stock right now — the board checks about every 5 minutes. Subscribe to get a Telegram card the moment a plan comes back.</div>
         </section>
 
         <section class="section waiting" aria-labelledby="waitTitle">
@@ -65,14 +71,155 @@
     </main>
 
     <footer class="foot">
-      <p><b>How this works.</b> A watcher polls the providers' order pages every ~60&nbsp;s and pushes a snapshot to this page.
-        Status can lag by a minute or two — the “updated” pill is the honest age of what you see.</p>
+      <p><b>How this works.</b> A watcher polls the providers' order pages <b id="cadFooter">about every 5 minutes</b> and pushes a snapshot to this page.
+        Status can lag by a few minutes — the “updated” pill is the honest age of what you see.</p>
+      <p>Restock alerts are sent by <b>your own</b> Telegram bot — this site can't message anyone a bot didn't already talk to.</p>
       <p>Prices are the providers' list prices. “Buy now” opens the provider's cart in a new tab; availability at checkout is up to the provider.</p>
       <p class="tiny">Not affiliated with any listed provider · open source: <a href="https://github.com/cdcupt/dmit-watch">github.com/cdcupt/dmit-watch</a></p>
     </footer>
 
   </div>
 
+  <!-- ===== subscribe/manage panel — static skeleton (zero CLS), body-level
+       siblings of #pageShell so `inert` never touches the dialog itself.
+       Markup formalizes the approved mockup (docs/pipeline/subscriptions/
+       MOCKUP.html); ids are the DESIGN §12 / TECH §fe-panel contract. ===== -->
+  <div id="subOverlay" hidden></div>
+  <div id="subPanel" role="dialog" aria-modal="true" aria-labelledby="subTitle" data-cad-min="5" hidden>
+    <div class="sub-head">
+      <div>
+        <h2 class="sub-title" id="subTitle">Restock alerts → your Telegram</h2>
+        <p class="sub-honesty" id="subHonesty">Checks run about every 5 minutes — an alert can lag a restock by up to ~5 min.</p>
+      </div>
+      <button type="button" class="sub-close" id="subClose" aria-label="Close">✕</button>
+    </div>
+    <div class="sub-tabs" role="tablist" aria-label="Alerts">
+      <button type="button" class="sub-tab" role="tab" id="tabSubscribe" aria-selected="true" aria-controls="paneSubscribe">Subscribe</button>
+      <button type="button" class="sub-tab" role="tab" id="tabManage" aria-selected="false" aria-controls="paneManage" tabindex="-1">Manage</button>
+    </div>
+
+    <div class="sub-body">
+      <!-- ============ subscribe tab ============ -->
+      <div id="paneSubscribe" role="tabpanel" aria-labelledby="tabSubscribe">
+        <div id="step1">
+          <p class="step-label">Step 1 of 2 · Pick your plans</p>
+          <p class="picker-hint">Plans in stock now alert on their next restock — after they've gone out and come back.</p>
+          <div id="planPicker"></div>
+        </div>
+        <div id="step2" hidden>
+          <p class="step-label">Step 2 of 2 · Connect your Telegram bot</p>
+          <ol class="steps">
+            <li>Open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a> in Telegram, send
+              <span class="copychip"><span>/newbot</span><button type="button" data-copy="/newbot">Copy</button></span>
+              and follow the two prompts. BotFather replies with a <b>token</b> — copy it.</li>
+            <li class="gate">Open your new bot's chat and press START. Telegram only lets a bot message people who started it.</li>
+            <li>Paste the token below, then find your chat id.</li>
+          </ol>
+          <form id="subForm">
+            <div class="field" id="fTok">
+              <label for="fldToken">bot token</label>
+              <input id="fldToken" type="text" autocomplete="off" spellcheck="false" placeholder="8123456789:AA…" aria-describedby="fTokErr">
+              <p class="field-err" id="fTokErr">That doesn't look like a bot token — it should look like 8123456789:AA… (46+ characters). Re-copy it from @BotFather.</p>
+            </div>
+            <div class="chatrow">
+              <div class="field" id="fChat">
+                <label for="fldChat">chat id</label>
+                <input id="fldChat" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="521934882" aria-describedby="fChatErr">
+                <p class="field-err" id="fChatErr">A chat id is just a number, like 521934882.</p>
+              </div>
+              <button type="button" class="btn btn-blue" id="findChat" disabled>Find my chat id</button>
+            </div>
+            <details class="whatchat">
+              <summary>what's a chat id?</summary>
+              <p>Telegram addresses every conversation by a number. After you press Start on your bot, “Find my chat id” asks Telegram (with your token) who talked to it — that number is you. Nothing else can be read with it.</p>
+            </details>
+            <div class="banner-err" id="subBanner" hidden></div>
+            <div class="privacy">
+              We store exactly three things: your bot token, your chat id, your plan list. No account, no email, no cookies.
+              Your bot can only message people who pressed Start on it — that's you. Unsubscribe here anytime, or send
+              <b>/revoke</b> to @BotFather — that kills the token instantly.
+              <p class="tiny">source: <a href="https://github.com/cdcupt/dmit-watch" target="_blank" rel="noopener">github.com/cdcupt/dmit-watch</a></p>
+            </div>
+          </form>
+        </div>
+        <div id="subSuccess" hidden>
+          <div class="success-card">
+            <h3 id="okTitle">Check your Telegram</h3>
+            <p id="okBody">Your confirmation card just arrived — the same pipe delivers your restock digest.</p>
+            <ul class="success-list" id="okList"></ul>
+          </div>
+          <div class="tgframe">
+            <p class="cap">what just landed in your chat</p>
+            <div class="tgbubble" id="okBubble"></div>
+          </div>
+          <div class="tgframe">
+            <p class="cap">what a restock digest will look like</p>
+            <div class="tgbubble" id="okDigestBubble"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ manage tab ============ -->
+      <div id="paneManage" role="tabpanel" aria-labelledby="tabManage" hidden>
+        <div id="mgAuth">
+          <p class="mg-note">Enter the same bot token + chat id you subscribed with — we'll load your plan list. There's nothing else to remember.</p>
+          <form id="mgForm">
+            <div class="field" id="mTok">
+              <label for="mgToken">bot token</label>
+              <input id="mgToken" type="text" autocomplete="off" spellcheck="false" placeholder="8123456789:AAxx…" aria-describedby="mTokErr">
+              <p class="field-err" id="mTokErr">That doesn't look like a bot token — it should look like 8123456789:AA… (46+ characters). Re-copy it from @BotFather.</p>
+            </div>
+            <div class="field" id="mChat">
+              <label for="mgChat">chat id</label>
+              <input id="mgChat" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="521934882" aria-describedby="mChatErr">
+              <p class="field-err" id="mChatErr">A chat id is just a number, like 521934882.</p>
+            </div>
+          </form>
+          <div class="mg-notfound" id="mgNotFound" hidden>No subscription found for that token + chat id.</div>
+          <div class="privacy">
+            We store exactly three things: your bot token, your chat id, your plan list. No account, no email, no cookies.
+            Your bot can only message people who pressed Start on it — that's you. Unsubscribe here anytime, or send
+            <b>/revoke</b> to @BotFather — that kills the token instantly.
+          </div>
+        </div>
+        <div id="mgLoaded" hidden>
+          <p class="mg-note" id="mgSummary"></p>
+          <div id="mgPicker"></div>
+          <div class="confirm-strip" id="mgConfirm" hidden>
+            <span>Remove this subscription and forget the token?</span>
+            <button type="button" class="btn btn-danger" id="mgConfirmYes">Yes, unsubscribe</button>
+            <button type="button" class="btn btn-ghost" id="mgConfirmNo">Keep it</button>
+          </div>
+        </div>
+        <div class="success-card" id="mgDoneCard" hidden><p id="mgDoneMsg"></p></div>
+        <div class="banner-err" id="mgBanner" hidden></div>
+      </div>
+    </div>
+
+    <!-- ONE polite status region for all async states in both tabs, pinned
+         between the scrolling body and the tray so it never scrolls away;
+         #pickCountSr is the debounced sr-only selection-count announcer. -->
+    <p class="status-line" id="subStatus" role="status" aria-live="polite"></p>
+    <span class="sr-only" role="status" id="pickCountSr"></span>
+
+    <!-- pinned tray: live count + exactly ONE visible primary per state -->
+    <div class="sub-tray" id="pickTray">
+      <span class="tray-count zero" id="pickCount">0 selected</span>
+      <span class="tray-hint" id="pickHint">pick at least one plan</span>
+      <span class="tray-actions">
+        <button type="button" class="btn btn-ghost" id="backTo1" hidden>‹ Back</button>
+        <button type="button" class="btn btn-primary" id="toStep2" disabled>Continue ▸</button>
+        <button type="button" class="btn btn-primary" id="subSubmit" hidden>Subscribe — send my confirmation ▸</button>
+        <button type="button" class="btn btn-primary" id="subDone" hidden>Done</button>
+        <button type="button" class="btn btn-primary" id="mgLoad" hidden>Load my subscription</button>
+        <button type="button" class="btn btn-primary" id="mgUpdate" hidden>Update subscription ▸</button>
+        <button type="button" class="btn btn-danger" id="mgUnsub" hidden>Unsubscribe all</button>
+        <button type="button" class="btn btn-primary" id="mgClose" hidden>Close</button>
+      </span>
+    </div>
+  </div>
+
   <script type="module" src="js/board.js"></script>
+  <script type="module" src="js/subscribe.js"></script>
 </body>
 </html>
