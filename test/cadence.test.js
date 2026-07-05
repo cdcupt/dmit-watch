@@ -99,10 +99,31 @@ test('a valid legacy band below the floor is clamped, not rejected', () => {
   assert.match(warnings.join('\n'), /below the 20s floor/);
 });
 
-test('the real config/watchlist.json resolves to the ~60s default band', () => {
+// CAD-U6 (subscriptions TECH §B6): the shipped knob is now 300 s. resolveCadenceSec
+// emits the [270, 330] jitter band (±10%) automatically; the floor and the env
+// override are re-asserted at the new base below.
+test('the real config/watchlist.json resolves to the ~300s band (5-minute cadence)', () => {
   const wl = loadWatchlist();
-  assert.equal(wl.settings.cadenceSec, 60, 'shipped config should use the single-number form');
-  assert.deepEqual(resolveCadenceSec(wl.settings, { env: {} }), [54, 66]);
+  assert.equal(wl.settings.cadenceSec, 300, 'shipped config should use the single-number form');
+  assert.deepEqual(resolveCadenceSec(wl.settings, { env: {} }), [270, 330]);
+});
+
+test('single number 300 → ±10% band [270, 330]; floor + env override still hold at the new base', () => {
+  const { logger, warnings } = capture();
+  assert.deepEqual(resolveCadenceSec({ cadenceSec: 300 }, { env: {}, logger }), [270, 330]);
+  assert.equal(warnings.length, 0, 'a valid 300 must not warn');
+  // The env knob still wins over the file's 300 (the quick way back to a faster beat)…
+  assert.deepEqual(
+    resolveCadenceSec({ cadenceSec: 300 }, { env: { DMIT_WATCH_CADENCE_SEC: '60' } }),
+    [54, 66],
+  );
+  // …and the 20s politeness floor still clamps a too-low override.
+  const low = capture();
+  assert.deepEqual(
+    resolveCadenceSec({ cadenceSec: 300 }, { env: { DMIT_WATCH_CADENCE_SEC: '3' }, logger: low.logger }),
+    [18, 22],
+  );
+  assert.match(low.warnings.join('\n'), /below the 20s floor/);
 });
 
 test('resolveCadenceSec never throws on hostile input', () => {
